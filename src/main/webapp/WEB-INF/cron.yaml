@@ -1,0 +1,4 @@
+cron:
+- description: daily library renew
+  url: /autorenew
+  schedule: every day 01:00
