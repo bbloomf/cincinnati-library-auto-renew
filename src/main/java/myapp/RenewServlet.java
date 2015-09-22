@@ -21,8 +21,11 @@ public class RenewServlet extends HttpServlet {
 	@Override
 	public void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 		DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
-		Query q = new Query("User");
+		Query q = new Query("MasterEmail");
 		PreparedQuery pq = datastore.prepare(q);
+		String masterEmail = (String)pq.asSingleEntity().getProperty("email");
+		q = new Query("User");
+		pq = datastore.prepare(q);
 		for (Entity result : pq.asIterable()) {
 			String email = (String) result.getProperty("email");
 			String card = (String) result.getProperty("card");
@@ -31,7 +34,7 @@ public class RenewServlet extends HttpServlet {
 			System.out.printf("Renewing items for %s (%s)\n", email, card);
 			resp.setContentType("text/plain");
 			resp.getWriter().printf("Renewing items for %s (%s)\n", email, card);
-			LibraryRenewer.renew(card, pin, email, resp);
+			LibraryRenewer.renew(card, pin, email, masterEmail, resp);
 		}
 
 	}

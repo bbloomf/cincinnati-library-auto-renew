@@ -34,15 +34,18 @@ import com.gargoylesoftware.htmlunit.html.HtmlTableCell;
 import com.gargoylesoftware.htmlunit.html.HtmlTableRow;
 
 public class LibraryRenewer {
-	private static void email(String email, String subject, String body) {
+	private static void email(String from, String email, String subject, String body) {
 		Properties props = new Properties();
 		Session session  = Session.getDefaultInstance(props, null);
 
         try {
             Message msg = new MimeMessage(session);
-            msg.setFrom(new InternetAddress(email));
+            msg.setFrom(new InternetAddress(from));
             msg.addRecipient(Message.RecipientType.TO,
                              new InternetAddress(email));
+            if(from != email) {
+            	msg.addRecipient(Message.RecipientType.CC, new InternetAddress(from));
+            }
             msg.setSubject(subject);
             msg.setText(body);
             Transport.send(msg);
@@ -54,10 +57,10 @@ public class LibraryRenewer {
         	e.printStackTrace(System.err);
         }
 	}
-	public static void renew(String strLibraryCard, String strPin, String email) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		renew(strLibraryCard, strPin, email, null);
+	public static void renew(String strLibraryCard, String strPin, String email, String from) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+		renew(strLibraryCard, strPin, email, from, null);
 	}
-	public static void renew(String strLibraryCard, String strPin, String email, HttpServletResponse resp) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+	public static void renew(String strLibraryCard, String strPin, String email, String from, HttpServletResponse resp) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		final WebClient webClient = new WebClient();
 		webClient.getOptions().setThrowExceptionOnScriptError(false);
 		HtmlPage page = webClient.getPage("https://classic.cincinnatilibrary.org:443/dp/patroninfo*eng/1180542/items");
@@ -145,7 +148,7 @@ public class LibraryRenewer {
 					System.out.println("--- Confirming ---");
 					page = anchor.click();
 					System.out.println(page.asXml());
-					email(email,String.format("Attempted to renew %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s"),
+					email(from, email,String.format("Attempted to renew %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s"),
 							"Please check the logs to make sure the renew was successful:\n" + page.asXml());
 				} else {
 					System.out.println("No 'Yes' anchor");
