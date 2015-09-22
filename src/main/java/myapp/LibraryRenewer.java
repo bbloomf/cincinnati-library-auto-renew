@@ -1,14 +1,5 @@
 package myapp;
 
-import java.util.Properties;
-
-import javax.mail.Message;
-import javax.mail.MessagingException;
-import javax.mail.Session;
-import javax.mail.Transport;
-import javax.mail.internet.AddressException;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeMessage;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -18,9 +9,17 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.Session;
+import javax.mail.Transport;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
 import javax.servlet.http.HttpServletResponse;
 
 import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
@@ -108,7 +107,6 @@ public class LibraryRenewer {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
 								if(resp != null) {
-									resp.setContentType("text/plain");
 									e.printStackTrace(resp.getWriter());
 								}
 								webClient.close();
@@ -164,7 +162,6 @@ public class LibraryRenewer {
 		// System.out.println(pageAsXml);
 		webClient.close();
 		if(resp!=null) {
-			resp.setContentType("text/plain");
 			resp.getWriter().printf("Attempted to renew %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s");
 		}
 	}

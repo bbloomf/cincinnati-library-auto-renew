@@ -1,29 +1,16 @@
 package myapp;
 
 import java.io.IOException;
-import java.net.URL;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.gargoylesoftware.htmlunit.WebClient;
-import com.gargoylesoftware.htmlunit.WebRequest;
-import com.gargoylesoftware.htmlunit.html.HtmlAnchor;
-import com.gargoylesoftware.htmlunit.html.HtmlCheckBoxInput;
-import com.gargoylesoftware.htmlunit.html.HtmlElement;
-import com.gargoylesoftware.htmlunit.html.HtmlPage;
-import com.gargoylesoftware.htmlunit.html.HtmlTable;
-import com.gargoylesoftware.htmlunit.html.HtmlTableCell;
-import com.gargoylesoftware.htmlunit.html.HtmlTableRow;
+import com.google.appengine.api.datastore.DatastoreService;
+import com.google.appengine.api.datastore.DatastoreServiceFactory;
+import com.google.appengine.api.datastore.Entity;
+import com.google.appengine.api.datastore.PreparedQuery;
+import com.google.appengine.api.datastore.Query;
 
 public class RenewServlet extends HttpServlet {
 	/**
@@ -33,6 +20,19 @@ public class RenewServlet extends HttpServlet {
 
 	@Override
 	public void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-		LibraryRenewer.renew(resp);
+		DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+		Query q = new Query("User");
+		PreparedQuery pq = datastore.prepare(q);
+		for (Entity result : pq.asIterable()) {
+			String email = (String) result.getProperty("email");
+			String card = (String) result.getProperty("card");
+			String pin = (String) result.getProperty("pin");
+
+			System.out.printf("Renewing items for %s (%s)\n", email, card);
+			resp.setContentType("text/plain");
+			resp.getWriter().printf("Renewing items for %s (%s)\n", email, card);
+			LibraryRenewer.renew(card, pin, email, resp);
+		}
+
 	}
 }
