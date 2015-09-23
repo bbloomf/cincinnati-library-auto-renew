@@ -41,6 +41,11 @@
             <artifactId>htmlunit</artifactId>
             <version>2.18</version>
         </dependency>
+        <dependency>
+            <groupId>com.googlecode.objectify</groupId>
+            <artifactId>objectify</artifactId>
+            <version>4.0.1</version>
+        </dependency>
 
         <!-- Test Dependencies -->
         <dependency>

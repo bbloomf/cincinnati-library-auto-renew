@@ -12,6 +12,8 @@ import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
 
+import com.googlecode.objectify.ObjectifyService;
+
 public class RenewServlet extends HttpServlet {
 	/**
 	 * 
@@ -20,16 +22,21 @@ public class RenewServlet extends HttpServlet {
 
 	@Override
 	public void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-		DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
-		Query q = new Query("MasterEmail");
-		PreparedQuery pq = datastore.prepare(q);
-		String masterEmail = (String)pq.asSingleEntity().getProperty("email");
-		q = new Query("User");
-		pq = datastore.prepare(q);
-		for (Entity result : pq.asIterable()) {
-			String email = (String) result.getProperty("email");
-			String card = (String) result.getProperty("card");
-			String pin = (String) result.getProperty("pin");
+		// retrieve the configuration from the datastore using Objectify
+		Config cfg = ObjectifyService.ofy()
+			  .load()
+			  .type(Config.class)
+			  .id(1)
+			  .now();
+
+	  	if(cfg == null || cfg.email == null || cfg.card_number == null || cfg.pin == null) {
+	  		resp.setContentType("text/plain");
+			resp.getWriter().printf("Configuration not set.\n");
+	  	} else {
+			String email = cfg.email;
+			String card = cfg.card_number;
+			String pin = cfg.pin;
+			String masterEmail = cfg.sender_email;
 
 			System.out.printf("Renewing items for %s (%s)\n", email, card);
 			resp.setContentType("text/plain");
