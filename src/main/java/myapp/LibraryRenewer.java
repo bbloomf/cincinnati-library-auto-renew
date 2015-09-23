@@ -74,6 +74,16 @@ public class LibraryRenewer {
 				"https://classic.cincinnatilibrary.org/iii/cas/login?service=https%3A%2F%2Fcatalog.cincinnatilibrary.org%3A443%2Fiii%2Fencore%2Fj_acegi_cas_security_check"));
 		page = webClient.getPage(request);
 
+		if(page.getUrl().toString().contains("login")) {
+			HtmlElement status = page.getHtmlElementById("status");
+			if(status != null) {
+				if(resp!=null)
+					resp.getWriter().println("Error: " + status.asText());
+				webClient.close();
+				return;
+			}
+		}
+
 		HtmlTable table = (HtmlTable) page.getElementsByTagName("table").get(0);
 		int rowId = 0;
 		HashMap<Integer, String> column = new HashMap<Integer, String>();
