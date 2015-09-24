@@ -32,48 +32,61 @@ import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.html.HtmlTable;
 import com.gargoylesoftware.htmlunit.html.HtmlTableCell;
 import com.gargoylesoftware.htmlunit.html.HtmlTableRow;
+import com.google.apphosting.api.ApiProxy;
 
 public class LibraryRenewer {
-	private static void email(String from, String email, String subject, String body) {
-		Properties props = new Properties();
-		Session session  = Session.getDefaultInstance(props, null);
+	private static void email(String email, String subject, String body) {
+		Config cfg = OfyService.ofy().load().type(Config.class).first().now();
+        String masterEmail = null;
+        if(cfg != null)
+            masterEmail = cfg.master_email;
 
-        try {
-            Message msg = new MimeMessage(session);
-            msg.setFrom(new InternetAddress(from));
-            msg.addRecipient(Message.RecipientType.TO,
-                             new InternetAddress(email));
-            if(from != email) {
-            	msg.addRecipient(Message.RecipientType.CC, new InternetAddress(from));
-            }
-            msg.setSubject(subject);
-            msg.setText(body);
-            Transport.send(msg);
-        } catch (AddressException e) {
-        	System.out.println("Failed to send email; stack trace follows.");
-        	e.printStackTrace(System.err);
-        } catch (MessagingException e) {
-        	System.out.println("Failed to send email; stack trace follows.");
-        	e.printStackTrace(System.err);
-        }
+		String from = "donotreply@" + ((String) ApiProxy.getCurrentEnvironment().getAttributes()
+				.get("com.google.appengine.runtime.default_version_hostname")).replaceFirst("\\.appspot\\.com$",
+						".appspotmail.com");
+		Properties props = new Properties();
+		Session session = Session.getDefaultInstance(props, null);
+
+		try {
+			Message msg = new MimeMessage(session);
+			msg.setFrom(new InternetAddress(from));
+			msg.addRecipient(Message.RecipientType.TO, new InternetAddress(email));
+			if (masterEmail != null && masterEmail != email) {
+				msg.addRecipient(Message.RecipientType.CC, new InternetAddress(masterEmail));
+			}
+			msg.setSubject(subject);
+			msg.setText(body);
+			Transport.send(msg);
+		} catch (AddressException e) {
+			System.out.println("Failed to send email; stack trace follows.");
+			e.printStackTrace(System.err);
+		} catch (MessagingException e) {
+			System.out.println("Failed to send email; stack trace follows.");
+			e.printStackTrace(System.err);
+		}
 	}
+
 	private static void updateStatus(String card_number, String status) {
 		// update datastore with current status
 		LibraryCard card = OfyService.ofy().load().type(LibraryCard.class).id(card_number).now();
 		card.UpdateStatus(status);
 		OfyService.ofy().save().entity(card).now();
 	}
-	public static void renew(String strLibraryCard, String strPin, String email, String from) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		renew(strLibraryCard, strPin, email, from, null);
+
+	public static void renew(LibraryCard card)
+			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+		renew(card, null);
 	}
-	public static void renew(String strLibraryCard, String strPin, String email, String from, HttpServletResponse resp) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+
+	public static void renew(LibraryCard card, HttpServletResponse resp)
+			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		final WebClient webClient = new WebClient();
 		webClient.getOptions().setThrowExceptionOnScriptError(false);
 		HtmlPage page = webClient.getPage("https://classic.cincinnatilibrary.org:443/dp/patroninfo*eng/1180542/items");
 		System.out.println(page.getUrl().toString());
-		page.getHtmlElementById("code").type(strLibraryCard);
+		page.getHtmlElementById("code").type(card.card_number);
 		HtmlElement pin = page.getHtmlElementById("pin");
-		pin.type(strPin);
+		pin.type(card.pin);
 		Date nextDueDate = null;
 
 		WebRequest request = pin.getEnclosingForm().getWebRequest(null);
@@ -82,12 +95,12 @@ public class LibraryRenewer {
 		page = webClient.getPage(request);
 
 		String status = "";
-		if(page.getUrl().toString().contains("login")) {
+		if (page.getUrl().toString().contains("login")) {
 			HtmlElement statusElement = page.getHtmlElementById("status");
-			if(statusElement != null) {
+			if (statusElement != null) {
 				status = "Error: " + statusElement.asText();
-				updateStatus(strLibraryCard, status);
-				if(resp!=null)
+				updateStatus(card.card_number, status);
+				if (resp != null)
 					resp.getWriter().println(status);
 				webClient.close();
 				return;
@@ -126,11 +139,12 @@ public class LibraryRenewer {
 							Date date;
 							try {
 								date = dateFormat.parse(m.group(1));
-								if(nextDueDate == null) nextDueDate = date;
+								if (nextDueDate == null)
+									nextDueDate = date;
 							} catch (ParseException e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
-								if(resp != null) {
+								if (resp != null) {
 									e.printStackTrace(resp.getWriter());
 								}
 								webClient.close();
@@ -170,7 +184,7 @@ public class LibraryRenewer {
 					page = anchor.click();
 					System.out.println(page.asXml());
 					status = String.format("Attempted to renew %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s");
-					email(from, email, status,
+					email(card.email, status,
 							"Please check the logs to make sure the renew was successful:\n" + page.asXml());
 				} else {
 					status = "No 'Yes' anchor";
@@ -180,18 +194,18 @@ public class LibraryRenewer {
 			}
 		} else {
 			status = "Nothing to renew";
-			if(nextDueDate != null && needToRenew == 0) {
+			if (nextDueDate != null && needToRenew == 0) {
 				status += String.format("; Next item is due on %s", dateFormat.format(nextDueDate));
 			}
 		}
-		updateStatus(strLibraryCard, status);
+		updateStatus(card.card_number, status);
 		System.out.println(status);
 
 		// System.out.println(page.getUrl().toString());
 		// final String pageAsXml = page.asXml();
 		// System.out.println(pageAsXml);
 		webClient.close();
-		if(resp!=null) {
+		if (resp != null) {
 			resp.getWriter().println(status);
 			resp.getWriter().println();
 		}
