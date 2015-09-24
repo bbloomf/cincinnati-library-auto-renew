@@ -68,6 +68,7 @@ public class LibraryRenewer {
 		page.getHtmlElementById("code").type(strLibraryCard);
 		HtmlElement pin = page.getHtmlElementById("pin");
 		pin.type(strPin);
+		Date nextDueDate = null;
 
 		WebRequest request = pin.getEnclosingForm().getWebRequest(null);
 		request.setUrl(new URL(
@@ -106,6 +107,7 @@ public class LibraryRenewer {
 							Date date;
 							try {
 								date = dateFormat.parse(m.group(1));
+								if(nextDueDate == null) nextDueDate = date;
 							} catch (ParseException e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
@@ -166,6 +168,10 @@ public class LibraryRenewer {
 		webClient.close();
 		if(resp!=null) {
 			resp.getWriter().printf("Attempted to renew %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s");
+			if(nextDueDate != null && needToRenew == 0) {
+				resp.getWriter().printf("Next item is due on %s\n", dateFormat.format(nextDueDate));
+			}
+			resp.getWriter().println();
 		}
 	}
 }
