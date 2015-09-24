@@ -1,5 +1,5 @@
 cron:
 - description: daily library renew
   url: /autorenew
-  schedule: every day 06:00
+  schedule: every day 02:00
   timezone: America/Detroit
