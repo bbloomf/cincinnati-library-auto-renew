@@ -78,6 +78,7 @@
     <div class="well">No library cards have been added yet :(</div>
 <% } else { %>
 
+    <div class="table-responsive">
     <table class="table table-striped table-bordered table-hover">
       <tr>
         <th>Email</th>
@@ -91,12 +92,13 @@
       <tr>
         <td><%= card.email %></td>
         <td><%= card.card_number %></td>
-        <td><% if(card.date_last_checked == null) { out.print("--"); } else { out.print(card.date_last_checked); } %></td>
+        <td><span class="timeago" title="<%= card.date_last_checked %>"><% if(card.date_last_checked == null) { out.print("--"); } else { out.print(card.date_last_checked); } %></span></td>
         <td class="status_cell"><% if(card.last_status == null) { out.print("--"); } else { out.print(card.last_status); } %></td>
         <td><button type="button" class="btn" data-toggle="modal" data-target="#modal-library-card" data-email="<%= card.email %>" data-card="<%= card.card_number %>" title="Edit Card"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></button> <button type="button" class="btn btn-danger" data-action="delete" data-card="<%= card.card_number %>" title="Delete Card"><span class="glyphicon glyphicon-remove" aria-hidden="true"></button> <button type="button" class="btn btn-info" data-action="recheck" data-card="<%= card.card_number %>" title="Recheck"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></button></td>
       </tr>
 <% } %>
   </table>
+  </div>
 <% } %>
 
         <button type="button" class="btn btn-primary btn-lg" data-toggle="modal" data-target="#modal-library-card" data-action="add">Add Library Card</button>
@@ -174,13 +176,18 @@
 
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-timeago/1.4.3/jquery.timeago.min.js"></script>
     <script type="text/javascript">
       $(function() {
+        // color errored cells
         $("td.status_cell").each(function(idx, ele) {
           var td = $(ele);
           if(td.text().toLowerCase().indexOf("error") > -1)
             td.closest("tr").addClass("danger");
         });
+
+        // setup timeago for last check dates
+        $("span.timeago").timeago();
       });
 
       $("[data-action='delete']").click(this, function() {
