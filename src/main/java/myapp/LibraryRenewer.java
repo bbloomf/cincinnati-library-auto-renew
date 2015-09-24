@@ -180,6 +180,9 @@ public class LibraryRenewer {
 			}
 		} else {
 			status = "Nothing to renew";
+			if(nextDueDate != null && needToRenew == 0) {
+				status += String.format("; Next item is due on %s", dateFormat.format(nextDueDate));
+			}
 		}
 		updateStatus(strLibraryCard, status);
 		System.out.println(status);
@@ -189,10 +192,7 @@ public class LibraryRenewer {
 		// System.out.println(pageAsXml);
 		webClient.close();
 		if(resp!=null) {
-			resp.getWriter().printf("Attempted to renew %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s");
-			if(nextDueDate != null && needToRenew == 0) {
-				resp.getWriter().printf("Next item is due on %s\n", dateFormat.format(nextDueDate));
-			}
+			resp.getWriter().println(status);
 			resp.getWriter().println();
 		}
 	}
