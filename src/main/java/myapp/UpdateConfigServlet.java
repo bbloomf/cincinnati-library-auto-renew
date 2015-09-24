@@ -14,7 +14,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.googlecode.objectify.ObjectifyService;
+//import com.googlecode.objectify.ObjectifyService;
 
 /**
  * Form Handling Servlet
@@ -29,16 +29,38 @@ public class UpdateConfigServlet extends HttpServlet {
   @Override
   public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
 
-    Config cfg = new Config(
-      req.getParameter("card_number"),
-      req.getParameter("pin"),
-      req.getParameter("email"),
-      req.getParameter("sender_email")
-    );
+    String action = req.getParameter("action");
+    String card_number = req.getParameter("card_number");
 
-    // Use Objectify to save the Config and now() is used to make the call synchronously as we
-    // will immediately get a new page using redirect and we want the data to be present.
-    ObjectifyService.ofy().save().entity(cfg).now();
+    if(action.equals("master_email")) {
+      Config cfg = OfyService.ofy().load().type(Config.class).id(1).now();
+      if(cfg == null)
+        cfg = new Config();
+      cfg.master_email = req.getParameter("email");
+      OfyService.ofy().save().entity(cfg).now();
+    } else if(action.equals("delete")) {
+      OfyService.ofy().delete().type(LibraryCard.class).id(card_number).now();
+    } else {
+
+      String pin = req.getParameter("pin");
+      String email = req.getParameter("email");
+      
+      // check if the library card exists
+      LibraryCard card = OfyService.ofy().load().type(LibraryCard.class).id(card_number).now();
+
+      if(card == null) {
+        card = new LibraryCard();
+        card.card_number = card_number;
+      }
+
+      card.email = email;
+      if(pin != null && pin != "")  // only update the pin if it was set
+        card.pin = pin;
+      
+      // // Use Objectify to save the Config and now() is used to make the call synchronously as we
+      // // will immediately get a new page using redirect and we want the data to be present.
+      OfyService.ofy().save().entity(card).now();
+    }
 
     resp.sendRedirect("/index.jsp");
   }

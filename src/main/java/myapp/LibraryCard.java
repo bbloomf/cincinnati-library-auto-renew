@@ -7,7 +7,7 @@ import com.googlecode.objectify.annotation.Parent;
 import com.googlecode.objectify.Key;
 
 import java.lang.String;
-import java.util.List;
+import java.util.Date;
 
 /**
  * The @Entity tells Objectify about our entity.  We also register it in {@link OfyHelper}
@@ -21,13 +21,26 @@ import java.util.List;
  * NOTE - all the properties are PUBLIC so that can keep the code simple.
  **/
 @Entity
-public class Config {
-  @Id public Long id;
-  
-  public String master_email;
+public class LibraryCard {
+  @Id public String card_number;
+  public String pin;
+  public String email;
 
-  public Config() {
-    id = 1l;
+  public Date date_last_checked;
+  public String last_status;
+
+  public LibraryCard() {
+  }
+
+  public LibraryCard(String card_number, String pin, String email) {
+    this.card_number = card_number;
+    this.pin = pin;
+    this.email = email;
+  }
+
+  public void UpdateStatus(String status) {
+    date_last_checked = new Date();
+    last_status = status;
   }
 
 }

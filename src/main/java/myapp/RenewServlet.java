@@ -2,6 +2,8 @@ package myapp;
 
 import java.io.IOException;
 
+import java.util.List;
+
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -12,37 +14,52 @@ import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
 
-import com.googlecode.objectify.ObjectifyService;
-
 public class RenewServlet extends HttpServlet {
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = -330119396067396L;
+    /**
+     * 
+     */
+    private static final long serialVersionUID = -330119396067396L;
 
-	@Override
-	public void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-		// retrieve the configuration from the datastore using Objectify
-		Config cfg = ObjectifyService.ofy()
-			  .load()
-			  .type(Config.class)
-			  .id(1)
-			  .now();
+    @Override
+    public void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        Config cfg = OfyService.ofy().load().type(Config.class).first().now();
+        String masterEmail = "";
+        if(cfg != null)
+            masterEmail = cfg.master_email;
 
-	  	if(cfg == null || cfg.email == null || cfg.card_number == null || cfg.pin == null) {
-	  		resp.setContentType("text/plain");
-			resp.getWriter().printf("Configuration not set.\n");
-	  	} else {
-			String email = cfg.email;
-			String card = cfg.card_number;
-			String pin = cfg.pin;
-			String masterEmail = cfg.sender_email;
+        // check if we are only rechecking a single card
+        String card_filter = req.getParameter("card_number");
 
-			System.out.printf("Renewing items for %s (%s)\n", email, card);
-			resp.setContentType("text/plain");
-			resp.getWriter().printf("Renewing items for %s (%s)\n", email, card);
-			LibraryRenewer.renew(card, pin, email, masterEmail, resp);
-		}
+        // retrieve the cards from the datastore using Objectify
+        List<LibraryCard> cards = null;
+        if(card_filter != null)
+            cards = OfyService.ofy()
+                .load()
+                .type(LibraryCard.class)
+                .filter("card_number", card_filter)
+                .list();
+        else {
+            cards = OfyService.ofy()
+              .load()
+              .type(LibraryCard.class)
+              .list();
+        }
 
-	}
+        if(cards == null || cards.isEmpty()) {
+            resp.setContentType("text/plain");
+            resp.getWriter().printf("No library cards have been added.\n");
+        } else {
+            for(LibraryCard card : cards) {
+                String email = card.email;
+                String card_number = card.card_number;
+                String pin = card.pin;
+                
+                System.out.printf("Renewing items for %s (%s)\n", email, card_number);
+                resp.setContentType("text/plain");
+                resp.getWriter().printf("Renewing items for %s (%s)\n", email, card_number);
+                LibraryRenewer.renew(card_number, pin, email, masterEmail, resp);
+            }
+        }
+
+    }
 }

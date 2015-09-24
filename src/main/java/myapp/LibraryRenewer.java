@@ -57,6 +57,12 @@ public class LibraryRenewer {
         	e.printStackTrace(System.err);
         }
 	}
+	private static void updateStatus(String card_number, String status) {
+		// update datastore with current status
+		LibraryCard card = OfyService.ofy().load().type(LibraryCard.class).id(card_number).now();
+		card.UpdateStatus(status);
+		OfyService.ofy().save().entity(card).now();
+	}
 	public static void renew(String strLibraryCard, String strPin, String email, String from) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		renew(strLibraryCard, strPin, email, from, null);
 	}
@@ -74,11 +80,14 @@ public class LibraryRenewer {
 				"https://classic.cincinnatilibrary.org/iii/cas/login?service=https%3A%2F%2Fcatalog.cincinnatilibrary.org%3A443%2Fiii%2Fencore%2Fj_acegi_cas_security_check"));
 		page = webClient.getPage(request);
 
+		String status = "";
 		if(page.getUrl().toString().contains("login")) {
-			HtmlElement status = page.getHtmlElementById("status");
-			if(status != null) {
+			HtmlElement statusElement = page.getHtmlElementById("status");
+			if(statusElement != null) {
+				status = "Error: " + statusElement.asText();
+				updateStatus(strLibraryCard, status);
 				if(resp!=null)
-					resp.getWriter().println("Error: " + status.asText());
+					resp.getWriter().println(status);
 				webClient.close();
 				return;
 			}
@@ -158,17 +167,20 @@ public class LibraryRenewer {
 					System.out.println("--- Confirming ---");
 					page = anchor.click();
 					System.out.println(page.asXml());
-					email(from, email,String.format("Attempted to renew %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s"),
+					status = String.format("Attempted to renew %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s");
+					email(from, email, status,
 							"Please check the logs to make sure the renew was successful:\n" + page.asXml());
 				} else {
-					System.out.println("No 'Yes' anchor");
+					status = "No 'Yes' anchor";
 				}
 			} else {
-				System.out.println("No 'Renew Marked' anchor");
+				status = "No 'Renew Marked' anchor";
 			}
 		} else {
-			System.out.println("Nothing to renew");
+			status = "Nothing to renew";
 		}
+		updateStatus(strLibraryCard, status);
+		System.out.println(status);
 
 		// System.out.println(page.getUrl().toString());
 		// final String pageAsXml = page.asXml();
