@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -51,7 +52,7 @@ public class LibraryRenewer {
 			Message msg = new MimeMessage(session);
 			msg.setFrom(new InternetAddress(from));
 			msg.addRecipient(Message.RecipientType.TO, new InternetAddress(email));
-			if (masterEmail != null && masterEmail != email) {
+			if (masterEmail != null && !masterEmail.equalsIgnoreCase(email)) {
 				msg.addRecipient(Message.RecipientType.CC, new InternetAddress(masterEmail));
 			}
 			msg.setSubject(subject);
@@ -71,6 +72,48 @@ public class LibraryRenewer {
 		LibraryCard card = OfyService.ofy().load().type(LibraryCard.class).id(card_number).now();
 		card.UpdateStatus(status);
 		OfyService.ofy().save().entity(card).now();
+	}
+	
+	public static String processStatusPage(HtmlPage page, LibraryCard card, int triedToRenew) {
+		String status;
+		HtmlElement ele = page.getHtmlElementById("renewfailmsg");
+		if(ele != null && !ele.getElementsByTagName("h2").isEmpty()) {
+			StringBuilder sb = new StringBuilder(256);
+			sb.append(ele.getElementsByTagName("h2").get(0).asText()).append("\n\n");
+			int failedCount = 0;
+			HtmlTable table = (HtmlTable) page.getElementsByTagName("table").get(0);
+			int rowId = 0;
+			HashMap<Integer, String> column = new HashMap<Integer, String>();
+			for (final HtmlTableRow row : table.getRows()) {
+				int colId = 0;
+				HashMap<String, HtmlTableCell> workingRow = null;
+				if (rowId > 1) {
+					workingRow = new HashMap<String, HtmlTableCell>();
+				}
+				for (final HtmlTableCell cell : row.getCells()) {
+					if (rowId == 1) {
+						column.put(colId, cell.asText().toLowerCase());
+					} else if (rowId > 1) {
+						workingRow.put(column.get(colId), cell);
+						if(column.get(colId).equals("status")) {
+							List<HtmlElement> list = cell.getHtmlElementsByTagName("font");
+							if(!list.isEmpty()) {
+								++failedCount;
+								String title = workingRow.get("title").asText().trim();
+								sb.append(list.get(0).asText()).append(": ").append(title).append("\n\n");
+							}
+						}
+					}
+					++colId;
+				}
+				++rowId;
+			}
+			status = String.format("%s of %s item%s failed to renew", failedCount, triedToRenew, triedToRenew == 1 ? "" : "s");
+			email(card.email, status, sb.toString());
+		} else {
+			status = String.format("Successfully renewed %s item%s\n", triedToRenew, triedToRenew == 1 ? "" : "s");
+		}
+		return status;
 	}
 
 	public static void renew(LibraryCard card)
@@ -111,7 +154,6 @@ public class LibraryRenewer {
 		int rowId = 0;
 		HashMap<Integer, String> column = new HashMap<Integer, String>();
 		HashMap<String, Integer> columnId = new HashMap<String, Integer>();
-		ArrayList<HashMap<String, HtmlTableCell>> rows = new ArrayList<HashMap<String, HtmlTableCell>>();
 		Pattern p = Pattern.compile("DUE ((\\d+)-(\\d+)-(\\d+))(\\s+.*)?");
 		SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd-yy");
 		Calendar today = Calendar.getInstance();
@@ -125,7 +167,7 @@ public class LibraryRenewer {
 			int colId = 0;
 			HashMap<String, HtmlTableCell> workingRow = null;
 			if (rowId > 1) {
-				rows.add(workingRow = new HashMap<String, HtmlTableCell>());
+				workingRow = new HashMap<String, HtmlTableCell>();
 			}
 			for (final HtmlTableCell cell : row.getCells()) {
 				if (rowId == 1) {
@@ -150,10 +192,6 @@ public class LibraryRenewer {
 								webClient.close();
 								return;
 							}
-							// System.out.println(m.group(1));
-							// System.out.println(date);
-							// System.out.println(today.getTime());
-							// System.out.println(date.compareTo(today.getTime()));
 							if (date.compareTo(today.getTime()) <= 0) {
 								HtmlCheckBoxInput cb = (HtmlCheckBoxInput) workingRow.get("renew")
 										.getElementsByTagName("input").get(0);
@@ -183,17 +221,7 @@ public class LibraryRenewer {
 					System.out.println("--- Confirming ---");
 					page = anchor.click();
 					System.out.println(page.asXml());
-
-					HtmlElement ele = page.getHtmlElementById("renewfailmsg");
-					if(ele != null && !ele.getElementsByTagName("h2").isEmpty()) {
-						status = String.format("Attempted to renew %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s");
-						status += "; " + ele.getElementsByTagName("h2").get(0).asText();
-					} else {
-						status = String.format("Successfully renewed %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s");
-					}
-
-					email(card.email, status,
-							"Please check the logs to make sure the renew was successful:\n" + page.asXml());
+					status = processStatusPage(page,card,needToRenew);
 				} else {
 					status = "No 'Yes' anchor";
 				}
