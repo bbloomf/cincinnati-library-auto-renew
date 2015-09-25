@@ -2,6 +2,7 @@
 <%@ page import="myapp.LibraryCard" %>
 <%@ page import="myapp.OfyService" %>
 <%@ page import="com.googlecode.objectify.Key" %>
+<%@ page import="com.google.apphosting.api.ApiProxy" %>
 
 <%@ page import="java.util.Date" %>
 <%@ page import="java.util.List" %>
@@ -67,6 +68,11 @@ SimpleDateFormat jsTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'z'");
         </p> -->
 
 <%
+    // sender email
+    String sender_email = "donotreply@" + ((String) ApiProxy.getCurrentEnvironment().getAttributes()
+        .get("com.google.appengine.runtime.default_version_hostname")).replaceFirst("\\.appspot\\.com$",
+            ".appspotmail.com");
+
     // retrieve the configuration from the datastore using Objectify
     String master_email = "";
     Config cfg = OfyService.ofy().load().type(Config.class).id(1).now();
@@ -109,7 +115,7 @@ SimpleDateFormat jsTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'z'");
         <button type="button" class="btn btn-primary btn-lg" data-toggle="modal" data-target="#modal-library-card" data-action="add">Add Library Card</button>
 
         <br/><br/>
-        <div class="master_email">Emails will come from <strong><%= master_email %></strong></div>
+        <div class="master_email">Emails will come from <strong><%= sender_email %></strong></div>
 
       </div>
 
@@ -165,7 +171,7 @@ SimpleDateFormat jsTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'z'");
               
               <div class="form-group">
                 <label for="email">Master Email Address</label>
-                <input type="email" class="form-control" placeholder="Email" id="email" name="email" autocomplete="false">
+                <input type="email" class="form-control" placeholder="Email" id="email" name="email" value="<%= master_email %>" autocomplete="false">
               </div>
 
               <input type="hidden" id="action" name="action" value="master_email">

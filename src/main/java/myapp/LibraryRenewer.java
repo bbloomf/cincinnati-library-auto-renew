@@ -183,7 +183,15 @@ public class LibraryRenewer {
 					System.out.println("--- Confirming ---");
 					page = anchor.click();
 					System.out.println(page.asXml());
-					status = String.format("Attempted to renew %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s");
+
+					HtmlElement ele = page.getHtmlElementById("renewfailmsg");
+					if(ele != null && !ele.getElementsByTagName("h2").isEmpty()) {
+						status = String.format("Attempted to renew %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s");
+						status += "; " + ele.getElementsByTagName("h2").get(0).asText();
+					} else {
+						status = String.format("Successfully renewed %s item%s\n", needToRenew, needToRenew == 1 ? "" : "s");
+					}
+
 					email(card.email, status,
 							"Please check the logs to make sure the renew was successful:\n" + page.asXml());
 				} else {
