@@ -97,7 +97,7 @@ SimpleDateFormat jsTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'z'");
       <tr>
         <td><%= card.email %></td>
         <td><%= card.card_number %></td>
-        <td><span class="timeago" title="<%= jsTime.format(card.date_last_checked) %>"><% if(card.date_last_checked == null) { out.print("--"); } else { out.print(card.date_last_checked); } %></span></td>
+        <td><span class="timeago" title="<%= card.date_last_checked==null?"":jsTime.format(card.date_last_checked) %>"><%= card.date_last_checked == null? "--" : card.date_last_checked %></span></td>
         <td class="status_cell"><% if(card.last_status == null) { out.print("--"); } else { out.print(card.last_status); } %></td>
         <td><button type="button" class="btn" data-toggle="modal" data-target="#modal-library-card" data-email="<%= card.email %>" data-card="<%= card.card_number %>" title="Edit Card"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></button> <button type="button" class="btn btn-danger" data-action="delete" data-card="<%= card.card_number %>" title="Delete Card"><span class="glyphicon glyphicon-remove" aria-hidden="true"></button> <button type="button" class="btn btn-info" data-action="recheck" data-card="<%= card.card_number %>" title="Recheck"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></button></td>
       </tr>
@@ -199,7 +199,7 @@ SimpleDateFormat jsTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'z'");
       $("[data-action='delete']").click(this, function() {
         if(confirm("Are you sure you want to delete this card?")) {
           var card_number = $(this).data("card");
-          var form = $("form");
+          var form = $("#modal-library-card form");
           form.find("#action").val("delete");
           form.find("#card_number").val(card_number);
           form.submit();
