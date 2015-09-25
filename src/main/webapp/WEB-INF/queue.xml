@@ -6,8 +6,8 @@
     <max-concurrent-requests>1</max-concurrent-requests>
     <retry-parameters>
       <min-backoff-seconds>900</min-backoff-seconds>
+      <max-backoff-seconds>900</max-backoff-seconds>
       <task-age-limit>1d</task-age-limit>
-      <max-doublings>0</max-doublings>
     </retry-parameters>
   </queue>
 </queue-entries>
