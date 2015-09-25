@@ -71,7 +71,7 @@ public class LibraryRenewer {
 
 	private static void enqueueTask(String cardNumber) {
 		Queue queue = QueueFactory.getDefaultQueue();
-		queue.add(TaskOptions.Builder.withUrl("/renewTask").param("card_number", cardNumber));
+		queue.add(TaskOptions.Builder.withUrl("/renewTask").param("card_number", cardNumber).countdownMillis(15 * 60 * 1000));
 	}
 
 	private static void updateStatus(String card_number, String status) {
