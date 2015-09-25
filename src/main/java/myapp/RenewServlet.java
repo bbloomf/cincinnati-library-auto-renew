@@ -43,7 +43,7 @@ public class RenewServlet extends HttpServlet {
             for(LibraryCard card : cards) {
                 System.out.printf("Renewing items for %s (%s)\n", card.email, card.card_number);
                 resp.getWriter().printf("Renewing items for %s (%s)\n", card.email, card.card_number);
-                LibraryRenewer.renew(card, resp);
+                LibraryRenewer.renew(card, false, resp);
             }
         }
 

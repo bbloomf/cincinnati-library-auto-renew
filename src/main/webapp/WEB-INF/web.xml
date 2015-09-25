@@ -9,6 +9,10 @@
         <servlet-class>myapp.RenewServlet</servlet-class>
     </servlet>
     <servlet>
+        <servlet-name>renewTask</servlet-name>
+        <servlet-class>myapp.RenewTaskServlet</servlet-class>
+    </servlet>
+    <servlet>
         <servlet-name>updateconfig</servlet-name>
         <servlet-class>myapp.UpdateConfigServlet</servlet-class>
     </servlet>
@@ -16,6 +20,10 @@
     <servlet-mapping>
         <servlet-name>autorenew</servlet-name>
         <url-pattern>/autorenew</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>renewTask</servlet-name>
+        <url-pattern>/renewTask</url-pattern>
     </servlet-mapping>
     <servlet-mapping>
         <servlet-name>updateconfig</servlet-name>

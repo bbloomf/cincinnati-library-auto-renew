@@ -5,7 +5,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -33,14 +32,17 @@ import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.html.HtmlTable;
 import com.gargoylesoftware.htmlunit.html.HtmlTableCell;
 import com.gargoylesoftware.htmlunit.html.HtmlTableRow;
+import com.google.appengine.api.taskqueue.Queue;
+import com.google.appengine.api.taskqueue.QueueFactory;
+import com.google.appengine.api.taskqueue.TaskOptions;
 import com.google.apphosting.api.ApiProxy;
 
 public class LibraryRenewer {
 	private static void email(String email, String subject, String body) {
 		Config cfg = OfyService.ofy().load().type(Config.class).first().now();
-        String masterEmail = null;
-        if(cfg != null)
-            masterEmail = cfg.master_email;
+		String masterEmail = null;
+		if (cfg != null)
+			masterEmail = cfg.master_email;
 
 		String from = "donotreply@" + ((String) ApiProxy.getCurrentEnvironment().getAttributes()
 				.get("com.google.appengine.runtime.default_version_hostname")).replaceFirst("\\.appspot\\.com$",
@@ -67,20 +69,25 @@ public class LibraryRenewer {
 		}
 	}
 
+	private static void enqueueTask(String cardNumber) {
+		Queue queue = QueueFactory.getDefaultQueue();
+		queue.add(TaskOptions.Builder.withUrl("/renewTask").param("card_number", cardNumber));
+	}
+
 	private static void updateStatus(String card_number, String status) {
 		// update datastore with current status
 		LibraryCard card = OfyService.ofy().load().type(LibraryCard.class).id(card_number).now();
 		card.UpdateStatus(status);
 		OfyService.ofy().save().entity(card).now();
 	}
-	
-	public static String processStatusPage(HtmlPage page, LibraryCard card, int triedToRenew) {
-		String status;
+
+	public static int processStatusPage(HtmlPage page, LibraryCard card, boolean isTask, int triedToRenew) {
+		String status = null;
+		int failedCount = 0;
 		HtmlElement ele = page.getHtmlElementById("renewfailmsg");
-		if(ele != null && !ele.getElementsByTagName("h2").isEmpty()) {
+		if (ele != null && !ele.getElementsByTagName("h2").isEmpty()) {
 			StringBuilder sb = new StringBuilder(256);
 			sb.append(ele.getElementsByTagName("h2").get(0).asText()).append("\n\n");
-			int failedCount = 0;
 			HtmlTable table = (HtmlTable) page.getElementsByTagName("table").get(0);
 			int rowId = 0;
 			HashMap<Integer, String> column = new HashMap<Integer, String>();
@@ -95,9 +102,9 @@ public class LibraryRenewer {
 						column.put(colId, cell.asText().toLowerCase());
 					} else if (rowId > 1) {
 						workingRow.put(column.get(colId), cell);
-						if(column.get(colId).equals("status")) {
+						if (column.get(colId).equals("status")) {
 							List<HtmlElement> list = cell.getHtmlElementsByTagName("font");
-							if(!list.isEmpty()) {
+							if (!list.isEmpty()) {
 								++failedCount;
 								String title = workingRow.get("title").asText().trim();
 								sb.append(list.get(0).asText()).append(": ").append(title).append("\n\n");
@@ -108,21 +115,37 @@ public class LibraryRenewer {
 				}
 				++rowId;
 			}
-			status = String.format("%s of %s item%s failed to renew", failedCount, triedToRenew, triedToRenew == 1 ? "" : "s");
-			email(card.email, status, sb.toString());
-		} else {
-			status = String.format("Successfully renewed %s item%s\n", triedToRenew, triedToRenew == 1 ? "" : "s");
+			if (!isTask) {
+				status = String.format("%s of %s item%s failed to renew", failedCount, triedToRenew,
+						triedToRenew == 1 ? "" : "s");
+				sb.append(String.format(
+						"It will continue attempting to renew %s every 15 minutes.  Another email will be sent if %s is successfully renewed.\n",
+						failedCount == 1 ? "this item" : "these items", failedCount == 1 ? "it" : "one"));
+				email(card.email, status, sb.toString());
+				enqueueTask(card.card_number);
+			} else if (failedCount != triedToRenew) {
+				int successes = triedToRenew - failedCount;
+				status = String.format("%s item%s succeeded in renewing, %s failed", successes,
+						successes == 1 ? "" : "s", failedCount);
+				email(card.email, status, sb.toString());
+			}
 		}
-		return status;
+		return failedCount;
 	}
 
-	public static void renew(LibraryCard card)
+	public static int renew(LibraryCard card)
 			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		renew(card, null);
+		return renew(card, false, null);
 	}
 
-	public static void renew(LibraryCard card, HttpServletResponse resp)
+	public static int renewTask(LibraryCard card, HttpServletResponse resp)
 			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+		return renew(card, true, resp);
+	}
+
+	public static int renew(LibraryCard card, boolean isTask, HttpServletResponse resp)
+			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+		int failedCount = 0;
 		final WebClient webClient = new WebClient();
 		webClient.getOptions().setThrowExceptionOnScriptError(false);
 		HtmlPage page = webClient.getPage("https://classic.cincinnatilibrary.org:443/dp/patroninfo*eng/1180542/items");
@@ -146,7 +169,7 @@ public class LibraryRenewer {
 				if (resp != null)
 					resp.getWriter().println(status);
 				webClient.close();
-				return;
+				return 0;
 			}
 		}
 
@@ -190,7 +213,7 @@ public class LibraryRenewer {
 									e.printStackTrace(resp.getWriter());
 								}
 								webClient.close();
-								return;
+								return 0;
 							}
 							if (date.compareTo(today.getTime()) <= 0) {
 								HtmlCheckBoxInput cb = (HtmlCheckBoxInput) workingRow.get("renew")
@@ -221,7 +244,14 @@ public class LibraryRenewer {
 					System.out.println("--- Confirming ---");
 					page = anchor.click();
 					System.out.println(page.asXml());
-					status = processStatusPage(page,card,needToRenew);
+					failedCount = processStatusPage(page, card, isTask, needToRenew);
+					if (failedCount > 0) {
+						status = String.format("%s of %s item%s failed to renew", failedCount, needToRenew,
+								needToRenew == 1 ? "" : "s");
+					} else {
+						status = String.format("Successfully renewed %s item%s\n", needToRenew,
+								needToRenew == 1 ? "" : "s");
+					}
 				} else {
 					status = "No 'Yes' anchor";
 				}
@@ -245,5 +275,6 @@ public class LibraryRenewer {
 			resp.getWriter().println(status);
 			resp.getWriter().println();
 		}
+		return failedCount;
 	}
 }
