@@ -8,3 +8,8 @@ It is designed to run from [Google App Engine](https://cloud.google.com/appengin
 Work in Progress
 ----------------
 It is still very much a work in progress, and does not yet detect whether the renewal was successful.
+
+To Do
+-----
+It should not keep trying to renew things that failed because the renewal limit was reached.
+The main page should require a google login, and then only show the library cards associated with that email.
