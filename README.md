@@ -5,10 +5,6 @@ Google App Engine
 -----------------
 It is designed to run from [Google App Engine](https://cloud.google.com/appengine/docs), and makes use of [HtmlUnit](http://htmlunit.sourceforge.net/) to interact with the library's website.
 
-Work in Progress
-----------------
-It is still very much a work in progress, and does not yet detect whether the renewal was successful.
-
 To Do
 -----
 It should not keep trying to renew things that failed because the renewal limit was reached.
