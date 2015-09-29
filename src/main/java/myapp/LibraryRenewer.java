@@ -116,13 +116,15 @@ public class LibraryRenewer {
 				++rowId;
 			}
 			if (!isTask) {
-				status = String.format("%s of %s item%s failed to renew", failedCount, triedToRenew,
-						triedToRenew == 1 ? "" : "s");
-				sb.append(String.format(
-						"It will continue attempting to renew %s every 15 minutes.  Another email will be sent if %s is successfully renewed.\n",
-						failedCount == 1 ? "this item" : "these items", failedCount == 1 ? "it" : "one"));
-				email(card.email, status, sb.toString());
-				enqueueTask(card.card_number);
+				if(failedCount > 0) {
+					status = String.format("%s of %s item%s failed to renew", failedCount, triedToRenew,
+							triedToRenew == 1 ? "" : "s");
+					sb.append(String.format(
+							"It will continue attempting to renew %s every 15 minutes.  Another email will be sent if %s is successfully renewed.\n",
+							failedCount == 1 ? "this item" : "these items", failedCount == 1 ? "it" : "one"));
+					email(card.email, status, sb.toString());
+					enqueueTask(card.card_number);
+				}
 			} else if (failedCount != triedToRenew) {
 				int successes = triedToRenew - failedCount;
 				status = String.format("%s item%s succeeded in renewing, %s failed", successes,
