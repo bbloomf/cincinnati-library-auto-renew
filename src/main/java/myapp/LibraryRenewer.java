@@ -38,6 +38,32 @@ import com.google.appengine.api.taskqueue.TaskOptions;
 import com.google.apphosting.api.ApiProxy;
 
 public class LibraryRenewer {
+	private static Pattern ptnDueDate = Pattern.compile("(?:due\\s*\\d+-\\d+-\\d+\\s*renewed\\s*)?(?:now )?due ((\\d+)-(\\d+)-(\\d+))(\\s+.*)?", Pattern.CASE_INSENSITIVE);
+	private static SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd-yy");
+	private static class Status {
+		public String statusText;
+		public Date nextDueDate;
+		public int failCount;
+		
+		public Status(String text, Date date, int count) {
+			this.statusText = text;
+			this.nextDueDate = date;
+			this.failCount = count;
+		}
+	}
+	
+	private static Date getDateForCellText(String text) {
+		Matcher m = ptnDueDate.matcher(text);
+		if (m.matches()) {
+			try {
+				return dateFormat.parse(m.group(1));
+			} catch (ParseException e) {
+				e.printStackTrace();
+			}
+		}
+		return null;
+	}
+	
 	private static void email(String email, String subject, String body) {
 		Config cfg = OfyService.ofy().load().type(Config.class).first().now();
 		String masterEmail = null;
@@ -74,17 +100,18 @@ public class LibraryRenewer {
 		queue.add(TaskOptions.Builder.withUrl("/renewTask").param("card_number", cardNumber).countdownMillis(15 * 60 * 1000));
 	}
 
-	private static void updateStatus(String card_number, String status) {
+	private static void updateStatus(String card_number, String status, Date nextDue) {
 		// update datastore with current status
 		LibraryCard card = OfyService.ofy().load().type(LibraryCard.class).id(card_number).now();
-		card.UpdateStatus(status);
+		card.UpdateStatus(status, nextDue);
 		OfyService.ofy().save().entity(card).now();
 	}
 
-	public static int processStatusPage(HtmlPage page, LibraryCard card, boolean isTask, int triedToRenew) {
+	public static Status processStatusPage(HtmlPage page, LibraryCard card, boolean isTask, int triedToRenew) {
 		String status = null;
 		int failedCount = 0;
 		HtmlElement ele = page.getHtmlElementById("renewfailmsg");
+		Date nextDueDate = null;
 		if (ele != null && !ele.getElementsByTagName("h2").isEmpty()) {
 			StringBuilder sb = new StringBuilder(256);
 			sb.append(ele.getElementsByTagName("h2").get(0).asText()).append("\n\n");
@@ -109,6 +136,9 @@ public class LibraryRenewer {
 								String title = workingRow.get("title").asText().trim();
 								sb.append(list.get(0).asText()).append(": ").append(title).append("\n\n");
 							}
+							Date date = getDateForCellText(cell.asText());
+							if (date != null && (nextDueDate == null || nextDueDate.after(date)))
+								nextDueDate = date;
 						}
 					}
 					++colId;
@@ -124,6 +154,9 @@ public class LibraryRenewer {
 							failedCount == 1 ? "this item" : "these items", failedCount == 1 ? "it" : "one"));
 					email(card.email, status, sb.toString());
 					enqueueTask(card.card_number);
+				} else {
+					status = String.format("Successfully renewed %s item%s\n", triedToRenew,
+							triedToRenew == 1 ? "" : "s");
 				}
 			} else if (failedCount != triedToRenew) {
 				int successes = triedToRenew - failedCount;
@@ -132,7 +165,7 @@ public class LibraryRenewer {
 				email(card.email, status, sb.toString());
 			}
 		}
-		return failedCount;
+		return new Status(status, nextDueDate, failedCount);
 	}
 
 	public static int renew(LibraryCard card)
@@ -147,7 +180,7 @@ public class LibraryRenewer {
 
 	public static int renew(LibraryCard card, boolean isTask, HttpServletResponse resp)
 			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		int failedCount = 0;
+		Status renewalStatus = null;
 		final WebClient webClient = new WebClient();
 		webClient.getOptions().setThrowExceptionOnScriptError(false);
 		HtmlPage page = webClient.getPage("https://classic.cincinnatilibrary.org:443/dp/patroninfo*eng/1180542/items");
@@ -167,7 +200,7 @@ public class LibraryRenewer {
 			HtmlElement statusElement = page.getHtmlElementById("status");
 			if (statusElement != null) {
 				status = "Error: " + statusElement.asText();
-				updateStatus(card.card_number, status);
+				updateStatus(card.card_number, status, null);
 				if (resp != null)
 					resp.getWriter().println(status);
 				webClient.close();
@@ -179,8 +212,6 @@ public class LibraryRenewer {
 		int rowId = 0;
 		HashMap<Integer, String> column = new HashMap<Integer, String>();
 		HashMap<String, Integer> columnId = new HashMap<String, Integer>();
-		Pattern p = Pattern.compile("DUE ((\\d+)-(\\d+)-(\\d+))(\\s+.*)?");
-		SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd-yy");
 		Calendar today = Calendar.getInstance();
 		today.set(Calendar.HOUR_OF_DAY, 0);
 		today.set(Calendar.MINUTE, 0);
@@ -201,7 +232,7 @@ public class LibraryRenewer {
 				} else if (rowId > 1) {
 					workingRow.put(column.get(colId), cell);
 					if ("status".equalsIgnoreCase(column.get(colId))) {
-						Matcher m = p.matcher(cell.asText());
+						Matcher m = ptnDueDate.matcher(cell.asText());
 						if (m.matches()) {
 							Date date;
 							try {
@@ -214,6 +245,7 @@ public class LibraryRenewer {
 								if (resp != null) {
 									e.printStackTrace(resp.getWriter());
 								}
+								updateStatus(card.card_number, "Error parsing date", null);
 								webClient.close();
 								return 0;
 							}
@@ -246,14 +278,9 @@ public class LibraryRenewer {
 					System.out.println("--- Confirming ---");
 					page = anchor.click();
 					System.out.println(page.asXml());
-					failedCount = processStatusPage(page, card, isTask, needToRenew);
-					if (failedCount > 0) {
-						status = String.format("%s of %s item%s failed to renew", failedCount, needToRenew,
-								needToRenew == 1 ? "" : "s");
-					} else {
-						status = String.format("Successfully renewed %s item%s\n", needToRenew,
-								needToRenew == 1 ? "" : "s");
-					}
+					renewalStatus = processStatusPage(page, card, isTask, needToRenew);
+					status = renewalStatus.statusText;
+					nextDueDate = renewalStatus.nextDueDate;
 				} else {
 					status = "No 'Yes' anchor";
 				}
@@ -262,11 +289,8 @@ public class LibraryRenewer {
 			}
 		} else {
 			status = "Nothing to renew";
-			if (nextDueDate != null && needToRenew == 0) {
-				status += String.format("; Next item is due on %s", dateFormat.format(nextDueDate));
-			}
 		}
-		updateStatus(card.card_number, status);
+		updateStatus(card.card_number, status, nextDueDate);
 		System.out.println(status);
 
 		// System.out.println(page.getUrl().toString());
@@ -277,6 +301,6 @@ public class LibraryRenewer {
 			resp.getWriter().println(status);
 			resp.getWriter().println();
 		}
-		return failedCount;
+		return renewalStatus == null? 0 : renewalStatus.failCount;
 	}
 }

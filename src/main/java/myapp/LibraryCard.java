@@ -27,6 +27,7 @@ public class LibraryCard {
   public String email;
 
   public Date date_last_checked;
+  public Date date_next_due;
   public String last_status;
 
   public LibraryCard() {
@@ -38,9 +39,10 @@ public class LibraryCard {
     this.email = email;
   }
 
-  public void UpdateStatus(String status) {
+  public void UpdateStatus(String status, Date date_next_due) {
     date_last_checked = new Date();
     last_status = status;
+    this.date_next_due = date_next_due; 
   }
 
 }

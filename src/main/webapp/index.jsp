@@ -10,6 +10,7 @@
 
 <%
 SimpleDateFormat jsTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'z'");
+SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd-yyyy");
 %>
 <!DOCTYPE html>
 <html lang="en">
@@ -96,6 +97,7 @@ SimpleDateFormat jsTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'z'");
         <th>Card Number</th>
         <th>Last Checked</th>
         <th>Last Status</th>
+        <th>Next Item Due</th>
         <th>Action</th>
       </tr>
     
@@ -104,7 +106,8 @@ SimpleDateFormat jsTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'z'");
         <td><%= card.email %></td>
         <td><%= card.card_number %></td>
         <td><span class="timeago" title="<%= card.date_last_checked==null?"":jsTime.format(card.date_last_checked) %>"><%= card.date_last_checked == null? "--" : card.date_last_checked %></span></td>
-        <td class="status_cell"><% if(card.last_status == null) { out.print("--"); } else { out.print(card.last_status); } %></td>
+        <td class="status_cell"><%= card.last_status == null? "--" : card.last_status %></td>
+        <td><%= card.date_next_due == null? "--" : dateFormat.format(card.date_next_due) %></td>
         <td><button type="button" class="btn btn-default" data-toggle="modal" data-target="#modal-library-card" data-email="<%= card.email %>" data-card="<%= card.card_number %>" title="Edit Card"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></button> <button type="button" class="btn btn-danger" data-action="delete" data-card="<%= card.card_number %>" title="Delete Card"><span class="glyphicon glyphicon-remove" aria-hidden="true"></button> <button type="button" class="btn btn-primary" data-action="recheck" data-card="<%= card.card_number %>" title="Recheck"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></button></td>
       </tr>
 <% } %>
