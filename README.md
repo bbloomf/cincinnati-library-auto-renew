@@ -8,5 +8,5 @@ It is designed to run from [Google App Engine](https://cloud.google.com/appengin
 To Do
 -----
 * It should not keep trying to renew things that failed because the renewal limit was reached.
-* It should still keep track of the next item due date when it has actually renewed things. 
+* Add a feature to renew items due through a specific date for times when planning to be out of town later on 
 * The main page should require a google login, and then only show the library cards associated with that email.
