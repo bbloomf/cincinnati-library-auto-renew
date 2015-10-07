@@ -31,7 +31,7 @@ public class RenewServlet extends HttpServlet {
         User user = null;
         List<LibraryCard> cards = null;
         if(userService.isUserLoggedIn()) {
-        	String email = userService.getCurrentUser().getEmail();
+        	String email = userService.getCurrentUser().getEmail().toLowerCase();
         	user = User.find(email);
         	if(user == null) {
         		System.err.printf("email '%s' not found; aborting\n", email);
@@ -59,8 +59,8 @@ public class RenewServlet extends HttpServlet {
             resp.getWriter().printf("No library cards have been added.\n");
         } else {
             for(LibraryCard card : cards) {
-        	    System.out.printf("Renewing items for %s (%s)\n", user.email, card.card_number);
-                resp.getWriter().printf("Renewing items for %s (%s)\n", user.email, card.card_number);
+        	    System.out.printf("Renewing items for %s (%s)\n", card.user.get().email, card.card_number);
+                resp.getWriter().printf("Renewing items for %s (%s)\n", card.user.get().email, card.card_number);
                 LibraryRenewer.renew(card, false, resp);
             }
         }

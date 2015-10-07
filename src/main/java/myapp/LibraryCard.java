@@ -53,6 +53,7 @@ public class LibraryCard {
   
   static {
 	  ObjectifyService.register(LibraryCard.class);
+	  ObjectifyService.register(User.class);
 	  
 	  // convert old format:
 	  List<LibraryCard> cards = getAll();
