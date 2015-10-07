@@ -5,6 +5,9 @@ import com.googlecode.objectify.annotation.Id;
 import com.googlecode.objectify.annotation.Index;
 import com.googlecode.objectify.annotation.Parent;
 import com.googlecode.objectify.Key;
+import com.googlecode.objectify.ObjectifyService;
+
+import static com.googlecode.objectify.ObjectifyService.ofy;
 
 import java.lang.String;
 import java.util.List;
@@ -28,6 +31,14 @@ public class Config {
 
   public Config() {
     id = 1l;
+  }
+  
+  static {
+	  ObjectifyService.register(Config.class);
+  }
+  
+  public static Config load() {
+	  return ofy().load().type(Config.class).id(1).now();
   }
 
 }

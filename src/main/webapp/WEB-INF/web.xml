@@ -27,10 +27,28 @@
     </servlet-mapping>
     <servlet-mapping>
         <servlet-name>updateconfig</servlet-name>
-        <url-pattern>/updateconfig</url-pattern>
+        <url-pattern>/status/updateconfig</url-pattern>
     </servlet-mapping>
 
     <welcome-file-list>
         <welcome-file>index.jsp</welcome-file>
     </welcome-file-list>
+    
+    <security-constraint>
+        <web-resource-collection>
+            <web-resource-name>Status</web-resource-name>
+            <url-pattern>/status/*</url-pattern>
+        </web-resource-collection>
+        <auth-constraint>
+            <role-name>*</role-name>
+        </auth-constraint>
+    </security-constraint>
+    <filter>
+	    <filter-name>ObjectifyFilter</filter-name>
+	    <filter-class>com.googlecode.objectify.ObjectifyFilter</filter-class>
+	</filter>
+	<filter-mapping>
+	    <filter-name>ObjectifyFilter</filter-name>
+	    <url-pattern>/*</url-pattern>
+	</filter-mapping>
 </web-app>

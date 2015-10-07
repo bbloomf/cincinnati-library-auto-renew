@@ -1,13 +1,16 @@
 package myapp;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
+import java.util.Date;
+import java.util.List;
+
+import com.googlecode.objectify.ObjectifyService;
+import com.googlecode.objectify.Ref;
 import com.googlecode.objectify.annotation.Entity;
 import com.googlecode.objectify.annotation.Id;
-import com.googlecode.objectify.annotation.Index;
+import com.googlecode.objectify.annotation.Load;
 import com.googlecode.objectify.annotation.Parent;
-import com.googlecode.objectify.Key;
-
-import java.lang.String;
-import java.util.Date;
 
 /**
  * The @Entity tells Objectify about our entity.  We also register it in {@link OfyHelper}
@@ -23,6 +26,7 @@ import java.util.Date;
 @Entity
 public class LibraryCard {
   @Id public String card_number;
+  @Load @Parent public Ref<User> user;
   public String pin;
   public String email;
 
@@ -33,7 +37,8 @@ public class LibraryCard {
   public LibraryCard() {
   }
 
-  public LibraryCard(String card_number, String pin, String email) {
+  public LibraryCard(User user, String card_number, String pin, String email) {
+	this.user = Ref.create(user);
     this.card_number = card_number;
     this.pin = pin;
     this.email = email;
@@ -43,6 +48,40 @@ public class LibraryCard {
     date_last_checked = new Date();
     last_status = status;
     this.date_next_due = date_next_due; 
+    ofy().save().entity(this).now();
   }
-
+  
+  static {
+	  ObjectifyService.register(LibraryCard.class);
+	  
+	  // convert old format:
+	  List<LibraryCard> cards = getAll();
+	  for(LibraryCard card : cards) {
+		  if(card.user == null) {
+			  System.out.printf("User found (%s [%s]) in old format; converting\n", card.email, card.card_number);
+			  User user = User.find(card.email.toLowerCase());
+			  if(user == null) {
+				  user = new User(card.email.toLowerCase());
+				  user.last_login = null;
+				  ofy().save().entity(user).now();
+			  }
+			  LibraryCard test = user.getLibraryCard(card.card_number);
+			  if(test == null) {
+				  LibraryCard newCard = new LibraryCard(user, card.card_number, card.pin, card.email);
+				  ofy().save().entity(newCard).now();
+				  System.out.printf("Converted user (%s) from old format\n", card.email);
+			  } 
+			  ofy().delete().entity(card).now();
+			  System.out.printf("Deleted old format for user (%s)\n", test.user.get().email);
+		  }
+	  }
+  }
+  
+  public static List<LibraryCard> getAll() {
+	  return ofy().load().type(LibraryCard.class).list();
+  }
+  
+  public static LibraryCard find(User user,String card_number) {
+	  return ofy().load().type(LibraryCard.class).parent(user).id(card_number).now();
+  }
 }

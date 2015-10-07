@@ -1,5 +1,7 @@
 package myapp;
 
+import static com.googlecode.objectify.ObjectifyService.ofy;
+
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -64,8 +66,8 @@ public class LibraryRenewer {
 		return null;
 	}
 	
-	private static void email(String email, String subject, String body) {
-		Config cfg = OfyService.ofy().load().type(Config.class).first().now();
+	private static void email(LibraryCard card, String subject, String body) {
+		Config cfg = Config.load();
 		String masterEmail = null;
 		if (cfg != null)
 			masterEmail = cfg.master_email;
@@ -79,8 +81,12 @@ public class LibraryRenewer {
 		try {
 			Message msg = new MimeMessage(session);
 			msg.setFrom(new InternetAddress(from));
-			msg.addRecipient(Message.RecipientType.TO, new InternetAddress(email));
-			if (masterEmail != null && !masterEmail.equalsIgnoreCase(email)) {
+			String userEmail = card.user.get().email;
+			msg.addRecipient(Message.RecipientType.TO, new InternetAddress(userEmail));
+			if(!userEmail.equalsIgnoreCase(card.email)) {
+				msg.addRecipient(Message.RecipientType.TO, new InternetAddress(card.email));
+			}
+			if (masterEmail != null && !masterEmail.equalsIgnoreCase(userEmail) && !masterEmail.equalsIgnoreCase(card.email)) {
 				msg.addRecipient(Message.RecipientType.CC, new InternetAddress(masterEmail));
 			}
 			msg.setSubject(subject);
@@ -95,20 +101,14 @@ public class LibraryRenewer {
 		}
 	}
 
-	private static void enqueueTask(String cardNumber) {
+	private static void enqueueTask(String email, String cardNumber) {
 		Queue queue = QueueFactory.getDefaultQueue();
-		queue.add(TaskOptions.Builder.withUrl("/renewTask").param("card_number", cardNumber).countdownMillis(15 * 60 * 1000));
-	}
-
-	private static void updateStatus(String card_number, String status, Date nextDue) {
-		// update datastore with current status
-		LibraryCard card = OfyService.ofy().load().type(LibraryCard.class).id(card_number).now();
-		card.UpdateStatus(status, nextDue);
-		OfyService.ofy().save().entity(card).now();
+		queue.add(TaskOptions.Builder.withUrl("/renewTask").param("email",email).param("card_number", cardNumber).countdownMillis(15 * 60 * 1000));
 	}
 
 	public static Status processStatusPage(HtmlPage page, LibraryCard card, boolean isTask, int triedToRenew) {
 		String status = null;
+		User user = card.user.get();
 		int failedCount = 0;
 		HtmlElement ele = page.getHtmlElementById("renewfailmsg");
 		Date nextDueDate = null;
@@ -152,8 +152,8 @@ public class LibraryRenewer {
 					sb.append(String.format(
 							"It will continue attempting to renew %s every 15 minutes.  Another email will be sent if %s is successfully renewed.\n",
 							failedCount == 1 ? "this item" : "these items", failedCount == 1 ? "it" : "one"));
-					email(card.email, status, sb.toString());
-					enqueueTask(card.card_number);
+					email(card, status, sb.toString());
+					enqueueTask(user.email, card.card_number);
 				} else {
 					status = String.format("Successfully renewed %s item%s\n", triedToRenew,
 							triedToRenew == 1 ? "" : "s");
@@ -162,7 +162,7 @@ public class LibraryRenewer {
 				int successes = triedToRenew - failedCount;
 				status = String.format("%s item%s succeeded in renewing, %s failed", successes,
 						successes == 1 ? "" : "s", failedCount);
-				email(card.email, status, sb.toString());
+				email(card, status, sb.toString());
 			}
 		}
 		return new Status(status, nextDueDate, failedCount);
@@ -200,7 +200,7 @@ public class LibraryRenewer {
 			HtmlElement statusElement = page.getHtmlElementById("status");
 			if (statusElement != null) {
 				status = "Error: " + statusElement.asText();
-				updateStatus(card.card_number, status, null);
+				card.UpdateStatus(status, null);
 				if (resp != null)
 					resp.getWriter().println(status);
 				webClient.close();
@@ -245,7 +245,7 @@ public class LibraryRenewer {
 								if (resp != null) {
 									e.printStackTrace(resp.getWriter());
 								}
-								updateStatus(card.card_number, "Error parsing date", null);
+								card.UpdateStatus(String.format("Error parsing date: %s", cell.asText()), null);
 								webClient.close();
 								return 0;
 							}
@@ -290,7 +290,7 @@ public class LibraryRenewer {
 		} else {
 			status = "Nothing to renew";
 		}
-		updateStatus(card.card_number, status, nextDueDate);
+		card.UpdateStatus(status, nextDueDate);
 		System.out.println(status);
 
 		// System.out.println(page.getUrl().toString());
