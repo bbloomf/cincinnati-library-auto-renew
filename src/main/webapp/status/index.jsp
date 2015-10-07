@@ -1,7 +1,6 @@
 <%@ page import="myapp.Config" %>
 <%@ page import="myapp.LibraryCard" %>
 <%@ page import="myapp.User" %>
-<%@ page import="myapp.OfyService" %>
 <%@ page import="com.googlecode.objectify.Key" %>
 <%@ page import="com.google.apphosting.api.ApiProxy" %>
 
