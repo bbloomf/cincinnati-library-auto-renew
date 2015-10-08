@@ -27,11 +27,14 @@ public class RenewServlet extends HttpServlet {
     	
         // check if we are only rechecking a single card
         String card_filter = req.getParameter("card_number");
+        String email = req.getParameter("email");
         UserService userService = UserServiceFactory.getUserService();
         User user = null;
         List<LibraryCard> cards = null;
-        if(userService.isUserLoggedIn()) {
-        	String email = userService.getCurrentUser().getEmail().toLowerCase();
+        if(userService.isUserAdmin() && email != null) {
+        	user = User.find(email);
+        } else if(userService.isUserLoggedIn()) {
+        	email = userService.getCurrentUser().getEmail().toLowerCase();
         	user = User.find(email);
         	if(user == null) {
         		System.err.printf("email '%s' not found; aborting\n", email);
@@ -42,7 +45,12 @@ public class RenewServlet extends HttpServlet {
         if(card_filter != null) {
         	if(user != null) {
 	        	cards = new ArrayList<LibraryCard>(1);
-	            cards.add(user.getLibraryCard(card_filter));
+	        	LibraryCard card = user.getLibraryCard(card_filter);
+	        	if(card == null) {
+	        		System.err.printf("card '%s' not found for user '%s'; aborting\n", card_filter, user.email);
+					return;
+	        	}
+	            cards.add(card);
         	} else {
         		System.err.println("card_filter is only supported when logged in.");
         		return;

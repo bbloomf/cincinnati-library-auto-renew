@@ -123,7 +123,11 @@ boolean isAdmin = User.isAdmin();
         <td><span class="timeago" title="<%= card.date_last_checked==null?"":jsTime.format(card.date_last_checked) %>"><%= card.date_last_checked == null? "--" : card.date_last_checked %></span></td>
         <td class="status_cell"><%= card.last_status == null? "--" : card.last_status %></td>
         <td><%= card.date_next_due == null? "--" : dateFormat.format(card.date_next_due) %></td>
-        <td class='nowrap'><button type="button" class="btn btn-default" data-toggle="modal" data-target="#modal-library-card" data-email="<%= card.email %>" data-card="<%= card.card_number %>" title="Edit Card"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></button> <button type="button" class="btn btn-danger" data-action="delete" <% if(isAdmin) { %>data-email="<%= card.user.get().email %>"<% } %> data-card="<%= card.card_number %>" title="Delete Card"><span class="glyphicon glyphicon-remove" aria-hidden="true"></button> <button type="button" class="btn btn-primary" data-action="recheck" data-card="<%= card.card_number %>" title="Recheck"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></button></td>
+        <td class='nowrap'>
+        	<button type="button" class="btn btn-default" data-toggle="modal" data-target="#modal-library-card" data-email="<%= card.email %>" data-card="<%= card.card_number %>" title="Edit Card"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></button>
+        	<button type="button" class="btn btn-danger" data-action="delete" <% if(isAdmin) { %>data-email="<%= card.user.get().email %>"<% } %> data-card="<%= card.card_number %>" title="Delete Card"><span class="glyphicon glyphicon-remove" aria-hidden="true"></button>
+        	<button type="button" class="btn btn-primary" data-action="recheck" <% if(isAdmin) { %>data-email="<%= card.user.get().email %>"<% } %> data-card="<%= card.card_number %>" title="Recheck"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></button>
+        </td>
       </tr>
 <% } %>
   </table>
@@ -235,16 +239,17 @@ boolean isAdmin = User.isAdmin();
 
       $("[data-action='recheck']").click(this, function() {
         var card_number = $(this).data("card");
-
+        var email = $(this).data("email");
+		var data = {
+          card_number: card_number
+        };
+        if(email) data.email = email;
         $("button").attr("disabled", "disabled");
         $(this).find(".glyphicon").addClass("icon-spin");
-
         $.ajax({
           type: "GET",
           url: "/autorenew",
-          data: {
-            card_number: card_number
-          },
+          data: data,
           success: function(data) {
             // refresh the page to update the table
             location.reload();
@@ -268,10 +273,17 @@ boolean isAdmin = User.isAdmin();
           modal.find("#card_number").attr("readonly", "readonly");
 		}
         modal.find("#email").val(email);
-        modal.find("#card_number").val(card_number).focus();
+        modal.find("#card_number").val(card_number)
         modal.find("#pin").val(pin);
+      });
+      $("#modal-library-card").on('shown.bs.modal', function (event) {
+      	var button = $(event.relatedTarget);
+      	var modal = $(this);
+      	var card_number = button.data("card");
         if(card_number) {
         	modal.find("#pin").focus();
+        } else {
+        	modal.find("#card_number").focus();
         }
       });
 
