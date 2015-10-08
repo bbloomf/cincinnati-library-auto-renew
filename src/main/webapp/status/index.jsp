@@ -2,6 +2,7 @@
 <%@ page import="myapp.LibraryCard" %>
 <%@ page import="myapp.User" %>
 <%@ page import="com.googlecode.objectify.Key" %>
+<%@ page import="com.googlecode.objectify.Ref" %>
 <%@ page import="com.google.apphosting.api.ApiProxy" %>
 
 <%@ page import="java.util.Date" %>
@@ -113,7 +114,7 @@ boolean isAdmin = User.isAdmin();
       </tr>
     
 <%  for(LibraryCard card : cards) { %>
-      <tr>
+      <tr class="<%= isAdmin && card.user.get().email.equalsIgnoreCase(user.email) ? "info" : "" %>">
         <% if(isAdmin) { %>
         <td><%= card.user.get().email %></td>
         <td><span class="timeago" title="<%= card.user.get().last_login==null?"":jsTime.format(card.user.get().last_login) %>"><%= card.user.get().last_login==null? "--" : card.user.get().last_login %></span></td>
