@@ -31,10 +31,10 @@ public class RenewServlet extends HttpServlet {
         UserService userService = UserServiceFactory.getUserService();
         User user = null;
         List<LibraryCard> cards = null;
-        if(userService.isUserLoggedIn() && userService.isUserAdmin() && email != null) {
-        	user = User.find(email);
-        } else if(userService.isUserLoggedIn()) {
-        	email = userService.getCurrentUser().getEmail().toLowerCase();
+        if(userService.isUserLoggedIn()) {
+        	if(!userService.isUserAdmin() || email == null) {
+        		email = userService.getCurrentUser().getEmail().toLowerCase();
+        	}
         	user = User.find(email);
         	if(user == null) {
         		System.err.printf("email '%s' not found; aborting\n", email);

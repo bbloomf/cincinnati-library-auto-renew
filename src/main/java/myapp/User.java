@@ -5,6 +5,7 @@ import static com.googlecode.objectify.ObjectifyService.ofy;
 import java.util.Date;
 import java.util.List;
 
+import com.google.appengine.api.users.UserService;
 import com.google.appengine.api.users.UserServiceFactory;
 import com.googlecode.objectify.ObjectifyService;
 import com.googlecode.objectify.annotation.Entity;
@@ -55,7 +56,8 @@ public class User {
   }
   
   public static boolean isAdmin() {
-	  return UserServiceFactory.getUserService().isUserAdmin();
+	  UserService userService = UserServiceFactory.getUserService();
+	  return userService.isUserLoggedIn() && userService.isUserAdmin();
   }
   
   public static User findOrCreate() {
