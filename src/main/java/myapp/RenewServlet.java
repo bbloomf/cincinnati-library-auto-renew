@@ -31,7 +31,7 @@ public class RenewServlet extends HttpServlet {
         UserService userService = UserServiceFactory.getUserService();
         User user = null;
         List<LibraryCard> cards = null;
-        if(userService.isUserAdmin() && email != null) {
+        if(userService.isUserLoggedIn() && userService.isUserAdmin() && email != null) {
         	user = User.find(email);
         } else if(userService.isUserLoggedIn()) {
         	email = userService.getCurrentUser().getEmail().toLowerCase();
