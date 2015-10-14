@@ -1,7 +1,5 @@
 package myapp;
 
-import static com.googlecode.objectify.ObjectifyService.ofy;
-
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -34,10 +32,6 @@ import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.html.HtmlTable;
 import com.gargoylesoftware.htmlunit.html.HtmlTableCell;
 import com.gargoylesoftware.htmlunit.html.HtmlTableRow;
-import com.google.appengine.api.taskqueue.Queue;
-import com.google.appengine.api.taskqueue.QueueFactory;
-import com.google.appengine.api.taskqueue.TaskOptions;
-import com.google.apphosting.api.ApiProxy;
 
 public class LibraryRenewer {
 	private static Pattern ptnDueDate = Pattern.compile("(?:due\\s*\\d+-\\d+-\\d+\\s*renewed\\s*)?(?:now )?due ((\\d+)-(\\d+)-(\\d+))(\\s+.*)?", Pattern.CASE_INSENSITIVE);
@@ -46,11 +40,13 @@ public class LibraryRenewer {
 		public String statusText;
 		public Date nextDueDate;
 		public int failCount;
+		public int tryToRenewCount;
 		
-		public Status(String text, Date date, int count) {
+		public Status(String text, Date date, int failCount, int tryToRenewCount) {
 			this.statusText = text;
 			this.nextDueDate = date;
-			this.failCount = count;
+			this.failCount = failCount;
+			this.tryToRenewCount = tryToRenewCount;
 		}
 	}
 	
@@ -66,27 +62,25 @@ public class LibraryRenewer {
 		return null;
 	}
 	
-	private static void email(LibraryCard card, String subject, String body) {
+	public static void email(LibraryCard card, String subject, String body) {
 		Config cfg = Config.load();
 		String masterEmail = null;
 		if (cfg != null)
 			masterEmail = cfg.master_email;
-
-		String from = "donotreply@" + ((String) ApiProxy.getCurrentEnvironment().getAttributes()
-				.get("com.google.appengine.runtime.default_version_hostname")).replaceFirst("\\.appspot\\.com$",
-						".appspotmail.com");
+		
+		String from = Util.getFromEmail();
 		Properties props = new Properties();
 		Session session = Session.getDefaultInstance(props, null);
 
 		try {
 			Message msg = new MimeMessage(session);
 			msg.setFrom(new InternetAddress(from));
-			String userEmail = card.user.get().email;
+			String userEmail = card==null? masterEmail : card.user.get().email;
 			msg.addRecipient(Message.RecipientType.TO, new InternetAddress(userEmail));
-			if(!userEmail.equalsIgnoreCase(card.email)) {
+			if(card != null && !userEmail.equalsIgnoreCase(card.email)) {
 				msg.addRecipient(Message.RecipientType.TO, new InternetAddress(card.email));
 			}
-			if (masterEmail != null && !masterEmail.equalsIgnoreCase(userEmail) && !masterEmail.equalsIgnoreCase(card.email)) {
+			if (card != null && masterEmail != null && !masterEmail.equalsIgnoreCase(userEmail) && !masterEmail.equalsIgnoreCase(card.email)) {
 				msg.addRecipient(Message.RecipientType.CC, new InternetAddress(masterEmail));
 			}
 			msg.setSubject(subject);
@@ -101,15 +95,11 @@ public class LibraryRenewer {
 		}
 	}
 
-	private static void enqueueTask(String email, String cardNumber) {
-		Queue queue = QueueFactory.getDefaultQueue();
-		queue.add(TaskOptions.Builder.withUrl("/renewTask").param("email",email).param("card_number", cardNumber).countdownMillis(15 * 60 * 1000));
-	}
-
 	public static Status processStatusPage(HtmlPage page, LibraryCard card, boolean isTask, int triedToRenew) {
 		String status = null;
 		User user = card.user.get();
 		int failedCount = 0;
+		int tryToRenewCount = 0;
 		HtmlElement ele = page.getHtmlElementById("renewfailmsg");
 		Date nextDueDate = null;
 		if (ele != null && !ele.getElementsByTagName("h2").isEmpty()) {
@@ -132,9 +122,13 @@ public class LibraryRenewer {
 						if (column.get(colId).equals("status")) {
 							List<HtmlElement> list = cell.getHtmlElementsByTagName("font");
 							if (!list.isEmpty()) {
+								ItemStatus itemStatus = ItemStatus.findOrCreate(list.get(0).asText(), page);
 								++failedCount;
+								if(itemStatus.worthTryingToRenew) {
+									++tryToRenewCount;
+								}
 								String title = workingRow.get("title").asText().trim();
-								sb.append(list.get(0).asText()).append(": ").append(title).append("\n\n");
+								sb.append(itemStatus.text).append(": ").append(title).append("\n\n");
 							}
 							Date date = getDateForCellText(cell.asText());
 							if (date != null && (nextDueDate == null || nextDueDate.after(date)))
@@ -149,11 +143,13 @@ public class LibraryRenewer {
 				if(failedCount > 0) {
 					status = String.format("%s of %s item%s failed to renew", failedCount, triedToRenew,
 							triedToRenew == 1 ? "" : "s");
-					sb.append(String.format(
-							"It will continue attempting to renew %s every 15 minutes.  Another email will be sent if %s is successfully renewed.\n",
-							failedCount == 1 ? "this item" : "these items", failedCount == 1 ? "it" : "one"));
+					if(tryToRenewCount > 0) {
+						sb.append(String.format(
+								"It will continue attempting to renew %s every 15 minutes.  Another email will be sent if %s is successfully renewed.\n",
+								tryToRenewCount == 1 ? "this item" : "these items", tryToRenewCount == 1 ? "it" : "one"));
+						Util.enqueueTask(user.email, card.card_number);
+					}
 					email(card, status, sb.toString());
-					enqueueTask(user.email, card.card_number);
 				} else {
 					status = String.format("Successfully renewed %s item%s\n", triedToRenew,
 							triedToRenew == 1 ? "" : "s");
@@ -165,7 +161,7 @@ public class LibraryRenewer {
 				email(card, status, sb.toString());
 			}
 		}
-		return new Status(status, nextDueDate, failedCount);
+		return new Status(status, nextDueDate, failedCount, tryToRenewCount);
 	}
 
 	public static int renew(LibraryCard card)
@@ -301,6 +297,6 @@ public class LibraryRenewer {
 			resp.getWriter().println(status);
 			resp.getWriter().println();
 		}
-		return renewalStatus == null? 0 : renewalStatus.failCount;
+		return renewalStatus == null? 0 : renewalStatus.tryToRenewCount;
 	}
 }

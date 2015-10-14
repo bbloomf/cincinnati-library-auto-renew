@@ -43,10 +43,10 @@ public class RenewTaskServlet extends HttpServlet {
 		}
 		System.out.printf("Renewing items for %s (%s)\n", user.email, card.card_number);
 		resp.getWriter().printf("Renewing items for %s (%s)\n", user.email, card.card_number);
-		int failedCount = LibraryRenewer.renewTask(card, resp);
+		int tryToRenewCount = LibraryRenewer.renewTask(card, resp);
 		// if we set the status to an error, it will keep retrying the
 		// task.
-		resp.setStatus(failedCount == 0 ? 200 : 500);
+		resp.setStatus(tryToRenewCount == 0 ? 200 : 500);
 	}
 
 	@Override
