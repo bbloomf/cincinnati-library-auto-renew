@@ -38,12 +38,19 @@ public class ItemStatus {
 	  ObjectifyService.register(ItemStatus.class);
   }
   
+  public static ItemStatus findOrCreate(String text, Boolean worthTryingToRenew) {
+	  return findOrCreate(text, worthTryingToRenew, null);
+  }
+  
   public static ItemStatus findOrCreate(String text, HtmlPage page) {
+	  return findOrCreate(text, true, page);
+  }
+  public static ItemStatus findOrCreate(String text, Boolean worthTryingToRenew, HtmlPage page) {
 	  ItemStatus status = ofy().load().type(ItemStatus.class).id(text).now();
 	  if(status == null) {
-		  status = new ItemStatus(text, true);
+		  status = new ItemStatus(text, worthTryingToRenew);
 		  ofy().save().entity(status).now();
-		  LibraryRenewer.email(null, "New item status created", String.format("The new item status '%s' has been created and is defaulting to triggering additional renew attempts.\n\n\n%s", text, page.asXml()));
+		  if(page != null) LibraryRenewer.email(null, "New item status created", String.format("The new item status '%s' has been created and is defaulting to triggering additional renew attempts.\n\n\n%s", text, page.asXml()));
 	  }
 	  return status;
   }

@@ -35,6 +35,7 @@ public class Config {
   
   static {
 	  ObjectifyService.register(Config.class);
+	  ItemStatus.findOrCreate("CANNOT RENEW - Item is on hold", true);
   }
   
   public static Config load() {
