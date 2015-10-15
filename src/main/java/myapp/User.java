@@ -53,6 +53,7 @@ public class User {
   
   static {
 	  ObjectifyService.register(User.class);
+	  ObjectifyService.register(LibraryCard.class);
   }
   
   public static boolean isAdmin() {

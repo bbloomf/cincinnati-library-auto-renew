@@ -3,6 +3,7 @@ package myapp;
 import static com.googlecode.objectify.ObjectifyService.ofy;
 
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
+import com.googlecode.objectify.ObjectifyService;
 import com.googlecode.objectify.annotation.Entity;
 import com.googlecode.objectify.annotation.Id;
 import com.googlecode.objectify.annotation.Ignore;
@@ -31,6 +32,10 @@ public class ItemStatus {
     this.text = text;
     this.worthTryingToRenew = worthTryingToRenew;
     this.justCreated = true;
+  }
+  
+  static {
+	  ObjectifyService.register(ItemStatus.class);
   }
   
   public static ItemStatus findOrCreate(String text, HtmlPage page) {
