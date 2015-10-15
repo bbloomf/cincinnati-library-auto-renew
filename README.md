@@ -7,5 +7,4 @@ It is designed to run from [Google App Engine](https://cloud.google.com/appengin
 
 To Do
 -----
-* It should not keep trying to renew things that failed because the renewal limit was reached.
 * Add a feature to renew items due through a specific date for times when planning to be out of town later on
