@@ -154,11 +154,19 @@ public class LibraryRenewer {
 					status = String.format("Successfully renewed %s item%s\n", triedToRenew,
 							triedToRenew == 1 ? "" : "s");
 				}
-			} else if (failedCount != triedToRenew) {
-				int successes = triedToRenew - failedCount;
-				status = String.format("%s item%s succeeded in renewing, %s failed", successes,
-						successes == 1 ? "" : "s", failedCount);
-				email(card, status, sb.toString());
+			} else {
+				if (failedCount != triedToRenew) {
+					int successes = triedToRenew - failedCount;
+					status = String.format("%s item%s succeeded in renewing, %s failed", successes,
+							successes == 1 ? "" : "s", failedCount);
+					email(card, status, sb.toString());
+				} else {
+					status = String.format("%s of %s item%s failed to renew", failedCount, triedToRenew,
+							triedToRenew == 1 ? "" : "s");
+				}
+			}
+			if(tryToRenewCount > 0) {
+				status = status.concat(", retrying in 15 minutes");
 			}
 		}
 		return new Status(status, nextDueDate, failedCount, tryToRenewCount);

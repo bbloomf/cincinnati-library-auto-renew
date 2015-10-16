@@ -49,8 +49,11 @@ public class UpdateConfigServlet extends HttpServlet {
 
       if(card == null) {
         card = new LibraryCard(user, card_number, pin, email);
-      } else if(pin != null && pin != "") { // only update the pin if it was set
-        card.pin = pin;
+      } else {
+    	  card.email = email;
+    	  if(pin != null && pin != "") { // only update the pin if it was set
+	        card.pin = pin;
+	      }
       }
       
       // // Use Objectify to save the Config and now() is used to make the call synchronously as we
