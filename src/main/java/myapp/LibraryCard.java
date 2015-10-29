@@ -54,28 +54,6 @@ public class LibraryCard {
   static {
 	  ObjectifyService.register(LibraryCard.class);
 	  ObjectifyService.register(User.class);
-	  
-	  // convert old format:
-	  List<LibraryCard> cards = getAll();
-	  for(LibraryCard card : cards) {
-		  if(card.user == null) {
-			  System.out.printf("User found (%s [%s]) in old format; converting\n", card.email, card.card_number);
-			  User user = User.find(card.email.toLowerCase());
-			  if(user == null) {
-				  user = new User(card.email.toLowerCase());
-				  user.last_login = null;
-				  ofy().save().entity(user).now();
-			  }
-			  LibraryCard test = user.getLibraryCard(card.card_number);
-			  if(test == null) {
-				  LibraryCard newCard = new LibraryCard(user, card.card_number, card.pin, card.email);
-				  ofy().save().entity(newCard).now();
-				  System.out.printf("Converted user (%s) from old format\n", card.email);
-			  } 
-			  ofy().delete().entity(card).now();
-			  System.out.printf("Deleted old format for user (%s)\n", test.user.get().email);
-		  }
-	  }
   }
   
   public static List<LibraryCard> getAll() {
