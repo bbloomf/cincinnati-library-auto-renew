@@ -1,9 +1,9 @@
 package myapp;
 
-import static com.googlecode.objectify.ObjectifyService.ofy;
-
 import java.io.IOException;
+import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.servlet.http.HttpServlet;
@@ -12,8 +12,6 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.google.appengine.api.users.UserService;
 import com.google.appengine.api.users.UserServiceFactory;
-import com.googlecode.objectify.cmd.LoadIds;
-import com.googlecode.objectify.cmd.LoadType;
 
 public class RenewServlet extends HttpServlet {
     /**
@@ -28,6 +26,16 @@ public class RenewServlet extends HttpServlet {
         // check if we are only rechecking a single card
         String card_filter = req.getParameter("card_number");
         String email = req.getParameter("email");
+        String vacationEndsString = req.getParameter("vacation_ends");
+        Date vacationEnds = null;
+        if(vacationEndsString != null) {
+        	try {
+				vacationEnds = Util.simpleDate.parse(vacationEndsString);
+			} catch (ParseException e) {
+				System.out.printf("ParseException: %s", e.toString());
+				e.printStackTrace();
+			}
+        }
         UserService userService = UserServiceFactory.getUserService();
         User user = null;
         List<LibraryCard> cards = null;
@@ -69,7 +77,7 @@ public class RenewServlet extends HttpServlet {
             for(LibraryCard card : cards) {
         	    System.out.printf("Renewing items for %s (%s)\n", card.user.get().email, card.card_number);
                 resp.getWriter().printf("Renewing items for %s (%s)\n", card.user.get().email, card.card_number);
-                LibraryRenewer.renew(card, false, resp);
+                LibraryRenewer.renew(card, false, vacationEnds, resp);
             }
         }
 

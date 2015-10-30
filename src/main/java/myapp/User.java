@@ -2,6 +2,7 @@ package myapp;
 
 import static com.googlecode.objectify.ObjectifyService.ofy;
 
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -49,6 +50,24 @@ public class User {
   
   public LibraryCard getLibraryCard(String card_filter) {
 	  return ofy().load().type(LibraryCard.class).parent(this).id(card_filter).now();
+  }
+  
+  public Date vacationEnds() {
+	  List<Vacation> vacations = ofy().load().type(Vacation.class).ancestor(this).list();
+	  Date now = new Date();
+	  Calendar result = Calendar.getInstance(); 
+	  for(Vacation v : vacations) {
+		  if(v.startDate.before(now) && v.endDate.after(now)) {
+			  result.setTime(v.endDate);
+			  break;
+		  }
+	  }
+	  result.set(Calendar.HOUR_OF_DAY, 0);
+	  result.set(Calendar.MINUTE, 0);
+	  result.set(Calendar.SECOND, 0);
+	  result.set(Calendar.MILLISECOND, 0);
+	
+	  return result.getTime();
   }
   
   static {

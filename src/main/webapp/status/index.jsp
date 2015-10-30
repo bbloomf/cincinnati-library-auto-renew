@@ -1,6 +1,7 @@
 <%@ page import="myapp.Config" %>
 <%@ page import="myapp.LibraryCard" %>
 <%@ page import="myapp.User" %>
+<%@ page import="myapp.Util" %>
 <%@ page import="com.googlecode.objectify.Key" %>
 <%@ page import="com.googlecode.objectify.Ref" %>
 <%@ page import="com.google.apphosting.api.ApiProxy" %>
@@ -12,7 +13,6 @@
 <%@ page import="com.google.appengine.api.users.UserServiceFactory" %>
 
 <%
-SimpleDateFormat jsTime = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'z'");
 SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd-yyyy");
 User user = User.findOrCreate();
 boolean isAdmin = User.isAdmin();
@@ -25,36 +25,37 @@ boolean isAdmin = User.isAdmin();
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Cincinnati Library Auto-Renew</title>
     <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css"/>
+    <link rel="stylesheet" type="text/css" href="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.css" />
     <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
 
     <style>
-      .nowrap {
-      	white-space: nowrap;
-      }
-      .icon-spin {
-        -webkit-animation: spin 1000ms infinite linear;
-        animation: spin 1000ms infinite linear;
-      }
-      @-webkit-keyframes spin {
-        0% {
-          -webkit-transform: rotate(0deg);
-          transform: rotate(0deg);
-        }
-        100% {
-          -webkit-transform: rotate(359deg);
-          transform: rotate(359deg);
-        }
-      }
-      @keyframes spin {
-        0% {
-          -webkit-transform: rotate(0deg);
-          transform: rotate(0deg);
-        }
-        100% {
-          -webkit-transform: rotate(359deg);
-          transform: rotate(359deg);
-        }
-      }
+.nowrap {
+	white-space: nowrap;
+}
+.glyphicon.glyphicon-share-alt.icon-spin {
+	transform-origin: bottom;
+	top: -5px;
+}
+.icon-spin {
+  -webkit-animation: spin 1000ms infinite linear;
+  animation: spin 1000ms infinite linear;
+}
+@-webkit-keyframes spin {
+  0% {
+    -webkit-transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(359deg);
+  }
+}
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(359deg);
+  }
+}
     </style>
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
@@ -117,17 +118,18 @@ boolean isAdmin = User.isAdmin();
       <tr class="<%= isAdmin && card.user.get().email.equalsIgnoreCase(user.email) ? "info" : "" %>">
         <% if(isAdmin) { %>
         <td><%= card.user.get().email %></td>
-        <td><span class="timeago" title="<%= card.user.get().last_login==null?"":jsTime.format(card.user.get().last_login) %>"><%= card.user.get().last_login==null? "--" : card.user.get().last_login %></span></td>
+        <td><span class="timeago" title="<%= card.user.get().last_login==null?"":Util.jsTime.format(card.user.get().last_login) %>"><%= card.user.get().last_login==null? "--" : card.user.get().last_login %></span></td>
         <% } %>
         <td><%= card.email %></td>
         <td><%= card.card_number %></td>
-        <td><span class="timeago" title="<%= card.date_last_checked==null?"":jsTime.format(card.date_last_checked) %>"><%= card.date_last_checked == null? "--" : card.date_last_checked %></span></td>
+        <td><span class="timeago" title="<%= card.date_last_checked==null?"":Util.jsTime.format(card.date_last_checked) %>"><%= card.date_last_checked == null? "--" : card.date_last_checked %></span></td>
         <td class="status_cell"><%= card.last_status == null? "--" : card.last_status %></td>
         <td><%= card.date_next_due == null? "--" : dateFormat.format(card.date_next_due) %></td>
         <td class='nowrap'>
         	<button type="button" class="btn btn-default" data-toggle="modal" data-target="#modal-library-card" data-email="<%= card.email %>" data-card="<%= card.card_number %>" title="Edit Card"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></button>
         	<button type="button" class="btn btn-danger" data-action="delete" <% if(isAdmin) { %>data-email="<%= card.user.get().email %>"<% } %> data-card="<%= card.card_number %>" title="Delete Card"><span class="glyphicon glyphicon-remove" aria-hidden="true"></button>
-        	<button type="button" class="btn btn-primary" data-action="recheck" <% if(isAdmin) { %>data-email="<%= card.user.get().email %>"<% } %> data-card="<%= card.card_number %>" title="Recheck"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></button>
+        	<button type="button" class="btn btn-primary" data-action="recheck" <% if(isAdmin) { %>data-email="<%= card.user.get().email %>"<% } %> data-card="<%= card.card_number %>" title="Renew Items Now"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></button>
+        	<button type="button" class="btn btn-default" data-action="recheck-vacation" <% if(isAdmin) { %>data-email="<%= card.user.get().email %>"<% } %> data-card="<%= card.card_number %>" title="Renew Items Due Through..."><span class="glyphicon glyphicon-share-alt" aria-hidden="true"></span></button>
         </td>
       </tr>
 <% } %>
@@ -209,8 +211,10 @@ boolean isAdmin = User.isAdmin();
     </div>
 
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="//cdn.jsdelivr.net/momentjs/latest/moment.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-timeago/1.4.3/jquery.timeago.min.js"></script>
+    <script src="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.js"></script>
     <script type="text/javascript">
       $(function() {
         // color errored cells
@@ -225,9 +229,9 @@ boolean isAdmin = User.isAdmin();
         $("span.timeago").timeago();
       });
 
-      $("[data-action='delete']").click(this, function() {
-        if(confirm("Are you sure you want to delete this card?")) {
-          var card_number = $(this).data("card");
+      $("[data-action=delete]").click(function() {
+        var card_number = $(this).data("card");
+        if(confirm("Are you sure you want to delete this card ("+card_number+")?")) {
           var form = $("#modal-library-card form");
           form.find("#action").val("delete");
           form.find("#card_number").val(card_number);
@@ -238,10 +242,10 @@ boolean isAdmin = User.isAdmin();
         }
       });
 
-      $("[data-action='recheck']").click(this, function() {
+      $("[data-action=recheck]").click(function() {
         var card_number = $(this).data("card");
         var email = $(this).data("email");
-		var data = {
+        var data = {
           card_number: card_number
         };
         if(email) data.email = email;
@@ -257,6 +261,30 @@ boolean isAdmin = User.isAdmin();
           }
         });
       });
+      
+      $("[data-action=recheck-vacation]").daterangepicker({
+      	singleDatePicker: true,
+      	minDate: 'today'
+      }).on('apply.daterangepicker', function(ev, picker) {
+	      var card_number = $(this).data("card");
+        var email = $(this).data("email");
+        var data = {
+          card_number: card_number,
+          vacation_ends: picker.startDate.format("YYYY-MM-DD") 
+        };
+        if(email) data.email = email;
+        $('button').attr("disabled", "disabled");
+        $(this).find(".glyphicon").addClass("icon-spin");
+        $.ajax({
+          type: "GET",
+          url: "/autorenew",
+          data: data,
+          success: function(data) {
+            // refresh the page to update the table
+            location.reload();
+          }
+        });
+		  });
 
       $("#modal-library-card").on('show.bs.modal', function (event) {
         var button = $(event.relatedTarget);

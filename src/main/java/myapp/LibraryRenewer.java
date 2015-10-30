@@ -35,7 +35,6 @@ import com.gargoylesoftware.htmlunit.html.HtmlTableRow;
 
 public class LibraryRenewer {
 	private static Pattern ptnDueDate = Pattern.compile("(?:due\\s*\\d+-\\d+-\\d+\\s*renewed\\s*)?(?:now )?due ((\\d+)-(\\d+)-(\\d+))(\\s+.*)?", Pattern.CASE_INSENSITIVE);
-	private static SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd-yy");
 	private static class Status {
 		public String statusText;
 		public Date nextDueDate;
@@ -54,7 +53,7 @@ public class LibraryRenewer {
 		Matcher m = ptnDueDate.matcher(text);
 		if (m.matches()) {
 			try {
-				return dateFormat.parse(m.group(1));
+				return Util.libraryDateFormat.parse(m.group(1));
 			} catch (ParseException e) {
 				e.printStackTrace();
 			}
@@ -174,16 +173,31 @@ public class LibraryRenewer {
 
 	public static int renew(LibraryCard card)
 			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		return renew(card, false, null);
+		return renew(card, false, null, null);
 	}
 
 	public static int renewTask(LibraryCard card, HttpServletResponse resp)
 			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
-		return renew(card, true, resp);
+		return renew(card, true, null, resp);
 	}
 
-	public static int renew(LibraryCard card, boolean isTask, HttpServletResponse resp)
+	public static int renewTask(LibraryCard card, Date deadline, HttpServletResponse resp)
 			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+		return renew(card, true, deadline, resp);
+	}
+
+	public static int renew(LibraryCard card, boolean isTask, Date deadline, HttpServletResponse resp)
+			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+		if(deadline == null) {
+			// TODO: need to check card for vacations and use the active vacation (if any) instead of today.
+			Calendar today = Calendar.getInstance();
+			today.set(Calendar.HOUR_OF_DAY, 0);
+			today.set(Calendar.MINUTE, 0);
+			today.set(Calendar.SECOND, 0);
+			today.set(Calendar.MILLISECOND, 0);
+			deadline = today.getTime();
+		}
+		System.out.printf("Renewing items due on or before %s\n", Util.jsTime.format(deadline));
 		Status renewalStatus = null;
 		final WebClient webClient = new WebClient();
 		webClient.getOptions().setThrowExceptionOnScriptError(false);
@@ -216,12 +230,7 @@ public class LibraryRenewer {
 		int rowId = 0;
 		HashMap<Integer, String> column = new HashMap<Integer, String>();
 		HashMap<String, Integer> columnId = new HashMap<String, Integer>();
-		Calendar today = Calendar.getInstance();
-		today.set(Calendar.HOUR_OF_DAY, 0);
-		today.set(Calendar.MINUTE, 0);
-		today.set(Calendar.SECOND, 0);
-		today.set(Calendar.MILLISECOND, 0);
-		System.out.printf("Renewing items due on or before %s\n", dateFormat.format(today.getTime()));
+		
 		int needToRenew = 0;
 		for (final HtmlTableRow row : table.getRows()) {
 			int colId = 0;
@@ -240,7 +249,7 @@ public class LibraryRenewer {
 						if (m.matches()) {
 							Date date;
 							try {
-								date = dateFormat.parse(m.group(1));
+								date = Util.libraryDateFormat.parse(m.group(1));
 								if (nextDueDate == null)
 									nextDueDate = date;
 							} catch (ParseException e) {
@@ -253,7 +262,7 @@ public class LibraryRenewer {
 								webClient.close();
 								return 0;
 							}
-							if (date.compareTo(today.getTime()) <= 0) {
+							if (date.compareTo(deadline) <= 0) {
 								HtmlCheckBoxInput cb = (HtmlCheckBoxInput) workingRow.get("renew")
 										.getElementsByTagName("input").get(0);
 								cb.setChecked(true);
