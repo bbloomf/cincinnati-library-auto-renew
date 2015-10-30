@@ -16,6 +16,10 @@
         <servlet-name>updateconfig</servlet-name>
         <servlet-class>myapp.UpdateConfigServlet</servlet-class>
     </servlet>
+    <servlet>
+        <servlet-name>updateVacation</servlet-name>
+        <servlet-class>myapp.UpdateVacationServlet</servlet-class>
+    </servlet>
 
     <servlet-mapping>
         <servlet-name>autorenew</servlet-name>
@@ -28,6 +32,10 @@
     <servlet-mapping>
         <servlet-name>updateconfig</servlet-name>
         <url-pattern>/status/updateconfig</url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>updateVacation</servlet-name>
+        <url-pattern>/status/vacation/update</url-pattern>
     </servlet-mapping>
 
     <welcome-file-list>

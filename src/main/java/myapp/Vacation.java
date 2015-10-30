@@ -9,6 +9,7 @@ import com.googlecode.objectify.ObjectifyService;
 import com.googlecode.objectify.Ref;
 import com.googlecode.objectify.annotation.Entity;
 import com.googlecode.objectify.annotation.Id;
+import com.googlecode.objectify.annotation.Index;
 import com.googlecode.objectify.annotation.Load;
 import com.googlecode.objectify.annotation.Parent;
 
@@ -25,8 +26,9 @@ import com.googlecode.objectify.annotation.Parent;
  **/
 @Entity
 public class Vacation {
-  @Id public Date startDate;
-  @Id public Date endDate;
+  @Id public Long id;
+  @Index public Date startDate;
+  @Index public Date endDate;
   @Load @Parent public Ref<User> user;
   
   public Vacation() {
@@ -36,6 +38,10 @@ public class Vacation {
 	this.user = Ref.create(user);
     this.startDate = startDate;
     this.endDate = endDate;
+  }
+  
+  public static Vacation find(User user,Long id) {
+	  return ofy().load().type(Vacation.class).parent(user).id(id).now();
   }
 
   static {

@@ -1,6 +1,7 @@
 <%@ page import="myapp.Config" %>
 <%@ page import="myapp.LibraryCard" %>
 <%@ page import="myapp.User" %>
+<%@ page import="myapp.Vacation" %>
 <%@ page import="myapp.Util" %>
 <%@ page import="com.googlecode.objectify.Key" %>
 <%@ page import="com.googlecode.objectify.Ref" %>
@@ -16,6 +17,7 @@
 SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd-yyyy");
 User user = User.findOrCreate();
 boolean isAdmin = User.isAdmin();
+List<Vacation> vacations = user.allVacations();
 %>
 <!DOCTYPE html>
 <html lang="en">
@@ -128,8 +130,7 @@ boolean isAdmin = User.isAdmin();
         <td class='nowrap'>
         	<button type="button" class="btn btn-default" data-toggle="modal" data-target="#modal-library-card" data-email="<%= card.email %>" data-card="<%= card.card_number %>" title="Edit Card"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></button>
         	<button type="button" class="btn btn-danger" data-action="delete" <% if(isAdmin) { %>data-email="<%= card.user.get().email %>"<% } %> data-card="<%= card.card_number %>" title="Delete Card"><span class="glyphicon glyphicon-remove" aria-hidden="true"></button>
-        	<button type="button" class="btn btn-primary" data-action="recheck" <% if(isAdmin) { %>data-email="<%= card.user.get().email %>"<% } %> data-card="<%= card.card_number %>" title="Renew Items Now"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></button>
-        	<button type="button" class="btn btn-default" data-action="recheck-vacation" <% if(isAdmin) { %>data-email="<%= card.user.get().email %>"<% } %> data-card="<%= card.card_number %>" title="Renew Items Due Through..."><span class="glyphicon glyphicon-share-alt" aria-hidden="true"></span></button>
+        	<button type="button" class="btn btn-primary" data-action="recheck" <% if(isAdmin) { %>data-email="<%= card.user.get().email %>"<% } %> data-card="<%= card.card_number %>" title="Renew Items Due Through..."><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></button>
         </td>
       </tr>
 <% } %>
@@ -140,10 +141,48 @@ boolean isAdmin = User.isAdmin();
         <button type="button" class="btn btn-primary btn-lg" data-toggle="modal" data-target="#modal-library-card" data-action="add">Add Library Card</button>
 
         <br/><br/>
-        <div class="master_email">Emails will come from <strong><%= sender_email %></strong></div>
-
+        
       </div>
 
+        <h3>Vacation</h3>
+<%
+    if (vacations.isEmpty()) {
+%>
+    <div class="well">
+    	<p>No vacation has been added yet...</p>
+    	<p>By adding a vacation date range, you can set your library books to be renewed in advance.  This is useful if you plan to be out of town, but want to make sure before leaving that any books that are due while you will be gone can be renewed.</p>
+    	<p>Starting on the first day marked as vacation, instead of using today&rsquo;s date as the cutoff for which items should be renewed, it will use the vacation end date.</p>
+    	Example: I am leaving Saturday morning and will be gone through the following Saturday.  If I have time on Saturday to take back any items that might not work renewing, I would create a vacation for Saturday to Saturday.  If I <i>won&rsquo;t</i> have time before leaving to take anything back to the library, then I would create the vacation to start one day earlier, on Friday.  Similarly, if I will have time after getting back on Saturday to take something back to the library, I could set the end date as Friday.  
+    </div>
+<% } else { %>
+
+    <div class="table-responsive">
+    <table class="table table-striped table-bordered table-hover">
+      <tr>
+        <th>Start</th>
+        <th>End</th>
+        <th>Action</th>
+      </tr>
+    
+<%  for(Vacation v : vacations) { %>
+      <tr>
+        <td><%= Util.simpleDate.format(v.startDate) %></td>
+        <td><%= Util.simpleDate.format(v.endDate) %></td>
+        <td class='nowrap'>
+        	<button type="button" class="btn btn-default" data-action="edit-vacation" data-id="<%= v.id %>" data-start="<%= Util.simpleDate.format(v.startDate) %>" data-end="<%= Util.simpleDate.format(v.endDate) %>" title="Edit Vacation Dates"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></button>
+        	<button type="button" class="btn btn-danger" data-action="delete-vacation" data-id="<%= v.id %>" data-start="<%= Util.simpleDate.format(v.startDate) %>" data-end="<%= Util.simpleDate.format(v.endDate) %>" title="Delete Vacation"><span class="glyphicon glyphicon-remove" aria-hidden="true"></button>
+        </td>
+      </tr>
+<% } %>
+  </table>
+  </div>
+<% } %>
+
+        <button type="button" class="btn btn-primary btn-lg" data-action="add-vacation">Add Vacation</button>
+      
+      <br/><br/>
+      <div class="master_email<%= isAdmin? " admin" : "" %>">Emails will come from <strong><%= sender_email %></strong></div>
+      
     </div><!-- /.container -->
 
     <!-- Modal -->
@@ -216,6 +255,7 @@ boolean isAdmin = User.isAdmin();
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-timeago/1.4.3/jquery.timeago.min.js"></script>
     <script src="//cdn.jsdelivr.net/bootstrap.daterangepicker/2/daterangepicker.js"></script>
     <script type="text/javascript">
+    	var dateFormat = 'YYYY-MM-DD';
       $(function() {
         // color errored cells
         $("td.status_cell").each(function(idx, ele) {
@@ -242,27 +282,7 @@ boolean isAdmin = User.isAdmin();
         }
       });
 
-      $("[data-action=recheck]").click(function() {
-        var card_number = $(this).data("card");
-        var email = $(this).data("email");
-        var data = {
-          card_number: card_number
-        };
-        if(email) data.email = email;
-        $("button").attr("disabled", "disabled");
-        $(this).find(".glyphicon").addClass("icon-spin");
-        $.ajax({
-          type: "GET",
-          url: "/autorenew",
-          data: data,
-          success: function(data) {
-            // refresh the page to update the table
-            location.reload();
-          }
-        });
-      });
-      
-      $("[data-action=recheck-vacation]").daterangepicker({
+      $("[data-action=recheck]").daterangepicker({
       	singleDatePicker: true,
       	minDate: 'today'
       }).on('apply.daterangepicker', function(ev, picker) {
@@ -316,8 +336,56 @@ boolean isAdmin = User.isAdmin();
         }
       });
 
-      $(".master_email").click(function() {
+      $(".master_email.admin").click(function() {
         $("#modal-master-email").modal('show');
+      });
+      
+      $("[data-action=delete-vacation]").click(function() {
+        var id = $(this).data('id');
+        var start = $(this).data('start');
+        var end = $(this).data('end');
+        if(confirm("Are you sure you want to delete this vacation ("+start+" - "+end+")?")) {
+          $.post('vacation/update', {
+          	delete: id
+          }, function(data){
+          	location.reload();
+          });
+        }
+      });
+
+      $("[data-action=add-vacation]").daterangepicker({
+      	minDate: 'today',
+      	drops: 'up',
+      	showDropdowns: true
+      }, function(start, end) {
+      	console.info('start date: ' + start.format(dateFormat));
+      	console.info('end date: ' + end.format(dateFormat));
+      	$.post('vacation/update', {
+      		start: start.format(dateFormat),
+      		end: end.format(dateFormat)
+      	}, function(data) {
+      		location.reload();
+      	});
+      });
+
+      $("[data-action=edit-vacation]").each(function(){
+      	var id = $(this).data('id');
+      	var options = { showDropdowns: true, drops: 'up' };
+      	options.minDate = moment().startOf('day');
+      	options.startDate = moment($(this).data('start'),'YYYY-MM-DD');
+      	options.endDate = moment($(this).data('end'),'YYYY-MM-DD');
+      	if(options.startDate < options.minDate) options.minDate = options.startDate;
+      	$(this).daterangepicker(options, function(start, end) {
+      		console.info('start date: ' + start.format(dateFormat));
+      		console.info('end date: ' + end.format(dateFormat));
+      		$.post('vacation/update', {
+      			id: id,
+	      		start: start.format(dateFormat),
+	      		end: end.format(dateFormat)
+	      	}, function(data) {
+	      		location.reload();
+	      	});
+      	});
       });
     </script>
   </body>

@@ -189,13 +189,7 @@ public class LibraryRenewer {
 	public static int renew(LibraryCard card, boolean isTask, Date deadline, HttpServletResponse resp)
 			throws FailingHttpStatusCodeException, MalformedURLException, IOException {
 		if(deadline == null) {
-			// TODO: need to check card for vacations and use the active vacation (if any) instead of today.
-			Calendar today = Calendar.getInstance();
-			today.set(Calendar.HOUR_OF_DAY, 0);
-			today.set(Calendar.MINUTE, 0);
-			today.set(Calendar.SECOND, 0);
-			today.set(Calendar.MILLISECOND, 0);
-			deadline = today.getTime();
+			deadline = card.user.get().vacationEnds();
 		}
 		System.out.printf("Renewing items due on or before %s\n", Util.jsTime.format(deadline));
 		Status renewalStatus = null;

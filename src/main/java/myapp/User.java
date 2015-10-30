@@ -52,12 +52,19 @@ public class User {
 	  return ofy().load().type(LibraryCard.class).parent(this).id(card_filter).now();
   }
   
+  public List<Vacation> allVacations() {
+	  return ofy().load().type(Vacation.class).ancestor(this).list();
+  }
+  
   public Date vacationEnds() {
-	  List<Vacation> vacations = ofy().load().type(Vacation.class).ancestor(this).list();
+	  List<Vacation> vacations = allVacations();
 	  Date now = new Date();
 	  Calendar result = Calendar.getInstance(); 
 	  for(Vacation v : vacations) {
-		  if(v.startDate.before(now) && v.endDate.after(now)) {
+		  if(v.endDate.before(now)) {
+			  ofy().delete().entity(v);
+		  } else if(v.startDate.before(now) && v.endDate.after(now)) {
+			  System.out.printf("User '%s' is on vacation until %s\n", this.email, Util.jsTime.format(v.endDate));
 			  result.setTime(v.endDate);
 			  break;
 		  }
@@ -73,6 +80,7 @@ public class User {
   static {
 	  ObjectifyService.register(User.class);
 	  ObjectifyService.register(LibraryCard.class);
+	  ObjectifyService.register(Vacation.class);
   }
   
   public static boolean isAdmin() {
