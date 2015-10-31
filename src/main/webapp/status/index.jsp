@@ -151,8 +151,8 @@ List<Vacation> vacations = user.allVacations();
     <div class="well">
     	<p>No vacation has been added yet...</p>
     	<p>By adding a vacation date range, you can set your library books to be renewed in advance.  This is useful if you plan to be out of town, but want to make sure before leaving that any books that are due while you will be gone can be renewed.</p>
-    	<p>Starting on the first day marked as vacation, instead of using today&rsquo;s date as the cutoff for which items should be renewed, it will use the vacation end date.</p>
-    	Example: I am leaving Saturday morning and will be gone through the following Saturday.  If I have time on Saturday to take back any items that might not work renewing, I would create a vacation for Saturday to Saturday.  If I <i>won&rsquo;t</i> have time before leaving to take anything back to the library, then I would create the vacation to start one day earlier, on Friday.  Similarly, if I will have time after getting back on Saturday to take something back to the library, I could set the end date as Friday.  
+    	<p>On the first day of a vacation period, all items due through the vacation end date will be renewed.</p>
+    	Example: I am leaving Saturday morning and will be gone through Thursday.  If I have time on Saturday to take back any items that might not work renewing, I would create a vacation for Saturday to Thursday.  If I <i>won&rsquo;t</i> have time before leaving to take anything back to the library, then I would create the vacation to start one day earlier, on Friday.  Similarly, if I will have time after getting back on Thursday to take something back to the library, I might set the end date as Wednesday.  
     </div>
 <% } else { %>
 
