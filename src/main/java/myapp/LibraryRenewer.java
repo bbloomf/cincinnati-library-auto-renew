@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -25,6 +23,7 @@ import javax.servlet.http.HttpServletResponse;
 import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.WebRequest;
+import com.gargoylesoftware.htmlunit.html.DomNodeList;
 import com.gargoylesoftware.htmlunit.html.HtmlAnchor;
 import com.gargoylesoftware.htmlunit.html.HtmlCheckBoxInput;
 import com.gargoylesoftware.htmlunit.html.HtmlElement;
@@ -127,6 +126,10 @@ public class LibraryRenewer {
 									++tryToRenewCount;
 								}
 								String title = workingRow.get("title").asText().trim();
+								DomNodeList<HtmlElement> nodes = workingRow.get("title").getElementsByTagName("a");
+								if(nodes.getLength() > 0) {
+									title = String.format("%s: %s", title, nodes.get(0).getAttribute("href"));
+								}
 								sb.append(itemStatus.text).append(": ").append(title).append("\n\n");
 							}
 							Date date = getDateForCellText(cell.asText());
