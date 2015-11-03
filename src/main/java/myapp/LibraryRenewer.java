@@ -1,6 +1,7 @@
 package myapp;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.ParseException;
@@ -72,7 +73,7 @@ public class LibraryRenewer {
 
 		try {
 			Message msg = new MimeMessage(session);
-			msg.setFrom(new InternetAddress(from));
+			msg.setFrom(new InternetAddress(from, "Cincinnati Library Auto Renew"));
 			String userEmail = card==null? masterEmail : card.user.get().email;
 			msg.addRecipient(Message.RecipientType.TO, new InternetAddress(userEmail));
 			if(card != null && !userEmail.equalsIgnoreCase(card.email)) {
@@ -86,10 +87,13 @@ public class LibraryRenewer {
 			Transport.send(msg);
 		} catch (AddressException e) {
 			System.out.println("Failed to send email; stack trace follows.");
-			e.printStackTrace(System.err);
+			e.printStackTrace(System.out);
 		} catch (MessagingException e) {
 			System.out.println("Failed to send email; stack trace follows.");
-			e.printStackTrace(System.err);
+			e.printStackTrace(System.out);
+		} catch (UnsupportedEncodingException e) {
+			System.out.println("Failed to send email; stack trace follows.");
+			e.printStackTrace(System.out);
 		}
 	}
 
