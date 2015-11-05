@@ -79,9 +79,6 @@ public class LibraryRenewer {
 			if(card != null && !userEmail.equalsIgnoreCase(card.email)) {
 				msg.addRecipient(Message.RecipientType.TO, new InternetAddress(card.email));
 			}
-			if (card != null && masterEmail != null && !masterEmail.equalsIgnoreCase(userEmail) && !masterEmail.equalsIgnoreCase(card.email)) {
-				msg.addRecipient(Message.RecipientType.CC, new InternetAddress(masterEmail));
-			}
 			msg.setSubject(subject);
 			msg.setText(body);
 			Transport.send(msg);
@@ -129,8 +126,9 @@ public class LibraryRenewer {
 								if(itemStatus.worthTryingToRenew) {
 									++tryToRenewCount;
 								}
-								String title = workingRow.get("title").asText().trim();
-								DomNodeList<HtmlElement> nodes = workingRow.get("title").getElementsByTagName("a");
+								HtmlTableCell titleCell = workingRow.get("title");
+								String title = titleCell.asText().trim();
+								DomNodeList<HtmlElement> nodes = titleCell.getElementsByTagName("a");
 								if(nodes.getLength() > 0) {
 									title = String.format("%s: %s", title, nodes.get(0).getAttribute("href"));
 								}
