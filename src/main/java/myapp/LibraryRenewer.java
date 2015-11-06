@@ -5,6 +5,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -93,6 +94,102 @@ public class LibraryRenewer {
 			e.printStackTrace(System.out);
 		}
 	}
+	
+	private static List<AvailableItemStatus> statusesInTable(HtmlTable table) {
+		ArrayList<AvailableItemStatus> result = new ArrayList<AvailableItemStatus>();
+		int statusCol = -1;
+	    int rowId = 0;
+	    for(final HtmlTableRow row : table.getRows()) {
+	    	int colId = 0;
+	    	for(final HtmlTableCell cell : row.getCells()) {
+  			if(rowId == 0) {
+	    			if(cell.asText().trim().equalsIgnoreCase("status")) {
+	    				statusCol = colId;
+	    				break;
+	    			}
+	    		} else {
+		    		if(colId == statusCol) {
+		    			result.add(AvailableItemStatus.findOrCreate(cell.asText().trim()));
+		    		}
+	    		}
+	    		++colId;
+	    	}
+	    	++rowId;
+	    }
+	    return result;
+	}
+	
+	public static int itemStatus(String url) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+		return itemStatus(url, null);
+	}
+	
+	// Returns integer correpsonding to whether the item is likely to be able to be renewed
+	// 0: not likely
+	// 1: likely
+	public static int itemStatus(String url, Integer expectedResult) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+		final WebClient webClient = new WebClient();
+		try {
+			int result = 1;
+			boolean hasHolds = false;
+			webClient.getOptions().setThrowExceptionOnScriptError(false);
+			webClient.getOptions().setPrintContentOnFailingStatusCode(false);
+			HtmlPage page = webClient.getPage(url);
+			HtmlElement document = page.getDocumentElement();
+			List<HtmlElement> dpBibHoldingStatement = document.getElementsByAttribute("div", "class", "dpBibHoldingStatement");
+			List<HtmlElement> holdsMessage = document.getElementsByAttribute("div", "class", "holdsMessage");
+		    List<HtmlElement> itemsAvailable = document.getElementsByAttribute("span", "class", "itemsAvailable");
+		    List<HtmlElement> itemsNotAvailable = document.getElementsByAttribute("span", "class", "itemsNotAvailable");
+		    List<HtmlElement> allItemsTable = document.getElementsByAttribute("div", "class", "allItemsSection");
+		    if(!allItemsTable.isEmpty()) {
+		    	allItemsTable = allItemsTable.get(0).getElementsByAttribute("table", "class", "itemTable");
+		    }
+		    List<HtmlElement> availableItemsTable = document.getElementsByAttribute("div", "class", "availableItemsSection");
+		    if(!availableItemsTable.isEmpty()) {
+		    	availableItemsTable = availableItemsTable.get(0).getElementsByAttribute("table", "class", "itemTable");
+		    }
+		    StringBuilder sb = new StringBuilder();
+		    if(!dpBibHoldingStatement.isEmpty()) {
+		      sb.append(String.format("dpBibHoldingStatement: %s\n", dpBibHoldingStatement.get(0).asText()));
+		    }
+		    if(!holdsMessage.isEmpty()) {
+		      hasHolds = true;
+		      sb.append(String.format("holdsMessage: %s\n", holdsMessage.get(0).asText()));
+		    }
+		    if(!itemsAvailable.isEmpty()) {
+		      sb.append(String.format("itemsAvailable: %s\n", itemsAvailable.get(0).asText()));
+		    }
+		    if(!itemsNotAvailable.isEmpty()) {
+		      sb.append(String.format("itemsNotAvailable: %s\n", itemsNotAvailable.get(0).asText()));
+		    }
+		    if(itemsAvailable.isEmpty() && itemsNotAvailable.isEmpty()) {
+		    	// unknown state...has the page changed?
+		    	email(null, "Problem with item status", String.format("This url %s contained neither span.itemsAvailable nor span.itemsNotAvailable", url));
+		    }
+		    List<AvailableItemStatus> availableStatuses = null;
+		    if(!availableItemsTable.isEmpty()) {
+		        availableStatuses = statusesInTable((HtmlTable)availableItemsTable.get(0));
+		        boolean canBePutOnHold = false;
+		        for(AvailableItemStatus s : availableStatuses) {
+		        	if(s.canBePutOnHold) {
+		        		canBePutOnHold = true;
+		        		break;
+		        	}
+		        }
+		        result = canBePutOnHold? 1 : (hasHolds? 0 : 1);
+		    } else if(!itemsNotAvailable.isEmpty()) {
+		    	result = hasHolds? 0 : 1;
+		    }
+		    System.out.println(sb.toString());
+		    if(expectedResult != null && expectedResult != result) {
+		    	if(result == 1) {
+		    		email(null, "Item failed to renew, but according to itemStatus() it should have succeeded.", page.asXml());
+		    	}
+		    }
+		    return result;
+		} finally {
+			webClient.close();
+		}
+	}
 
 	public static Status processStatusPage(HtmlPage page, LibraryCard card, boolean isTask, int triedToRenew) {
 		String status = null;
@@ -125,6 +222,16 @@ public class LibraryRenewer {
 								++failedCount;
 								if(itemStatus.worthTryingToRenew) {
 									++tryToRenewCount;
+									//make sure this is a failure that could be detected in the future:
+									DomNodeList<HtmlElement> titleAnchors = workingRow.get("title").getElementsByTagName("a");
+									if(titleAnchors.getLength() > 0) {
+										try {
+											int iStatus = itemStatus(titleAnchors.get(0).getAttribute("href"),isTask? null : 0);
+										} catch (FailingHttpStatusCodeException e) {
+										} catch (MalformedURLException e) {
+										} catch (IOException e) {
+										}
+									}
 								}
 								HtmlTableCell titleCell = workingRow.get("title");
 								String title = titleCell.asText().trim();
@@ -200,6 +307,7 @@ public class LibraryRenewer {
 		Status renewalStatus = null;
 		final WebClient webClient = new WebClient();
 		webClient.getOptions().setThrowExceptionOnScriptError(false);
+		webClient.getOptions().setPrintContentOnFailingStatusCode(false);
 		HtmlPage page = webClient.getPage("https://classic.cincinnatilibrary.org:443/dp/patroninfo*eng/1180542/items");
 		System.out.println(page.getUrl().toString());
 		page.getHtmlElementById("code").type(card.card_number);
@@ -252,7 +360,6 @@ public class LibraryRenewer {
 								if (nextDueDate == null)
 									nextDueDate = date;
 							} catch (ParseException e) {
-								// TODO Auto-generated catch block
 								e.printStackTrace();
 								if (resp != null) {
 									e.printStackTrace(resp.getWriter());
@@ -260,6 +367,23 @@ public class LibraryRenewer {
 								card.UpdateStatus(String.format("Error parsing date: %s", cell.asText()), null);
 								webClient.close();
 								return 0;
+							}
+							if (card.email.equalsIgnoreCase(Config.load().master_email)) {
+								DomNodeList<HtmlElement> titleAnchors = workingRow.get("title").getElementsByTagName("a");
+								if(titleAnchors.getLength() > 0) {
+									try {
+										HtmlElement anchor = titleAnchors.get(0);
+										String title = anchor.asText().trim();
+										String href = anchor.getAttribute("href");
+										if(itemStatus(href) == 0) {
+											email(null,"Item may fail to renew",
+													String.format("The item %s %s which is due on %s may fail to renew according to current heuristic models.", title, href, Util.simpleDate.format(date)));
+										}
+									} catch (FailingHttpStatusCodeException e) {
+									} catch (MalformedURLException e) {
+									} catch (IOException e) {
+									}
+								}
 							}
 							if (date.compareTo(deadline) <= 0) {
 								HtmlCheckBoxInput cb = (HtmlCheckBoxInput) workingRow.get("renew")

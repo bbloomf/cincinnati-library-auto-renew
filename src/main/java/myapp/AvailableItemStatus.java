@@ -2,7 +2,6 @@ package myapp;
 
 import static com.googlecode.objectify.ObjectifyService.ofy;
 
-import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.google.apphosting.api.ApiProxy;
 import com.googlecode.objectify.ObjectifyService;
 import com.googlecode.objectify.annotation.Entity;
@@ -21,40 +20,37 @@ import com.googlecode.objectify.annotation.Ignore;
  * NOTE - all the properties are PUBLIC so that can keep the code simple.
  **/
 @Entity
-public class ItemStatus {
+public class AvailableItemStatus {
   @Id public String text;
-  public Boolean worthTryingToRenew;
+  public Boolean canBePutOnHold;
   @Ignore boolean justCreated = false;
 
-  public ItemStatus() {
+  public AvailableItemStatus() {
   }
 
-  public ItemStatus(String text, Boolean worthTryingToRenew) {
+  public AvailableItemStatus(String text, Boolean canBePutOnHold) {
     this.text = text;
-    this.worthTryingToRenew = worthTryingToRenew;
+    this.canBePutOnHold = canBePutOnHold;
     this.justCreated = true;
   }
   
   static {
-	  ObjectifyService.register(ItemStatus.class);
+	  ObjectifyService.register(AvailableItemStatus.class);
   }
   
-  public static ItemStatus findOrCreate(String text, Boolean worthTryingToRenew) {
-	  return findOrCreate(text, worthTryingToRenew, null);
+  public static AvailableItemStatus findOrCreate(String text) {
+	  return findOrCreate(text, true);
   }
-  
-  public static ItemStatus findOrCreate(String text, HtmlPage page) {
-	  return findOrCreate(text, true, page);
-  }
-  public static ItemStatus findOrCreate(String text, Boolean worthTryingToRenew, HtmlPage page) {
-	  ItemStatus status = ofy().load().type(ItemStatus.class).id(text).now();
+  public static AvailableItemStatus findOrCreate(String text, Boolean canBePutOnHold) {
+	  AvailableItemStatus status = ofy().load().type(AvailableItemStatus.class).id(text).now();
 	  if(status == null) {
-		  status = new ItemStatus(text, worthTryingToRenew);
+		  status = new AvailableItemStatus(text, canBePutOnHold);
 		  ofy().save().entity(status).now();
-		  if(page != null) LibraryRenewer.email(null, "New item status created", String.format("The new item status '%s' https://console.developers.google.com/datastore/query?queryType=KindQuery&namespace=&kind=ItemStatus&project=%s has been created and is defaulting to triggering additional renew attempts.\n\n\n%s", text, 
+		  LibraryRenewer.email(null, "New Available Item status created", String.format("The new _available item status_ '%s' has been created and is defaulting to being thought of as able to be put on hold.\n\nSee here: https://console.developers.google.com/datastore/query?queryType=KindQuery&namespace=&kind=AvailableItemStatus&project=%s", 
+				  text,
 				  ((String)ApiProxy.getCurrentEnvironment().getAttributes().get("com.google.appengine.runtime.default_version_hostname")).
-				  replaceFirst("\\.appspot\\.com$", ""),
-				  page.asXml()));
+				  replaceFirst("\\.appspot\\.com$", "")
+				  ));
 	  }
 	  return status;
   }
