@@ -6,6 +6,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -25,6 +26,7 @@ import javax.servlet.http.HttpServletResponse;
 import com.gargoylesoftware.htmlunit.FailingHttpStatusCodeException;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.WebRequest;
+import com.gargoylesoftware.htmlunit.html.DomElement;
 import com.gargoylesoftware.htmlunit.html.DomNodeList;
 import com.gargoylesoftware.htmlunit.html.HtmlAnchor;
 import com.gargoylesoftware.htmlunit.html.HtmlCheckBoxInput;
@@ -127,14 +129,20 @@ public class LibraryRenewer {
 	// 0: not likely
 	// 1: likely
 	public static int itemStatus(String url, Integer expectedResult) throws FailingHttpStatusCodeException, MalformedURLException, IOException {
+		java.util.logging.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(java.util.logging.Level.OFF);
 		final WebClient webClient = new WebClient();
 		try {
 			int result = 1;
 			boolean hasHolds = false;
-			webClient.getOptions().setThrowExceptionOnScriptError(false);
+			StringBuilder sb = new StringBuilder(String.format("url: %s\n", url));
+		    webClient.getOptions().setThrowExceptionOnScriptError(false);
 			webClient.getOptions().setPrintContentOnFailingStatusCode(false);
 			HtmlPage page = webClient.getPage(url);
 			HtmlElement document = page.getDocumentElement();
+			DomElement titleElem = page.getElementById("bibTitle");
+			if(titleElem != null) {
+				sb.append(String.format("title: %s\n", titleElem.asText().trim()));
+			}
 			List<HtmlElement> dpBibHoldingStatement = document.getElementsByAttribute("div", "class", "dpBibHoldingStatement");
 			List<HtmlElement> holdsMessage = document.getElementsByAttribute("div", "class", "holdsMessage");
 		    List<HtmlElement> itemsAvailable = document.getElementsByAttribute("span", "class", "itemsAvailable");
@@ -147,7 +155,6 @@ public class LibraryRenewer {
 		    if(!availableItemsTable.isEmpty()) {
 		    	availableItemsTable = availableItemsTable.get(0).getElementsByAttribute("table", "class", "itemTable");
 		    }
-		    StringBuilder sb = new StringBuilder();
 		    if(!dpBibHoldingStatement.isEmpty()) {
 		      sb.append(String.format("dpBibHoldingStatement: %s\n", dpBibHoldingStatement.get(0).asText()));
 		    }
@@ -303,8 +310,16 @@ public class LibraryRenewer {
 		if(deadline == null) {
 			deadline = card.user.get().vacationEnds();
 		}
+		Calendar cal = Calendar.getInstance(); 
+		cal.set(Calendar.HOUR_OF_DAY, 0);
+		cal.set(Calendar.MINUTE, 0);
+		cal.set(Calendar.SECOND, 0);
+		cal.set(Calendar.MILLISECOND, 0);
+		cal.add(Calendar.DAY_OF_MONTH, 7);
+		Date nextWeek = cal.getTime();
 		System.out.printf("Renewing items due on or before %s\n", Util.jsTime.format(deadline));
 		Status renewalStatus = null;
+		java.util.logging.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(java.util.logging.Level.OFF);
 		final WebClient webClient = new WebClient();
 		webClient.getOptions().setThrowExceptionOnScriptError(false);
 		webClient.getOptions().setPrintContentOnFailingStatusCode(false);
@@ -368,7 +383,7 @@ public class LibraryRenewer {
 								webClient.close();
 								return 0;
 							}
-							if (card.email.equalsIgnoreCase(Config.load().master_email)) {
+							if (date.compareTo(nextWeek) <= 0 && card.email.equalsIgnoreCase(Config.load().master_email)) {
 								DomNodeList<HtmlElement> titleAnchors = workingRow.get("title").getElementsByTagName("a");
 								if(titleAnchors.getLength() > 0) {
 									try {
