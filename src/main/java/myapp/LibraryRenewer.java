@@ -233,7 +233,7 @@ public class LibraryRenewer {
 									DomNodeList<HtmlElement> titleAnchors = workingRow.get("title").getElementsByTagName("a");
 									if(titleAnchors.getLength() > 0) {
 										try {
-											int iStatus = itemStatus(titleAnchors.get(0).getAttribute("href"),isTask? null : 0);
+											itemStatus(titleAnchors.get(0).getAttribute("href"),isTask? null : 0);
 										} catch (FailingHttpStatusCodeException e) {
 										} catch (MalformedURLException e) {
 										} catch (IOException e) {
@@ -352,7 +352,11 @@ public class LibraryRenewer {
 		int rowId = 0;
 		HashMap<Integer, String> column = new HashMap<Integer, String>();
 		HashMap<String, Integer> columnId = new HashMap<String, Integer>();
-		
+		if(card.email.equalsIgnoreCase(Config.load().master_email)) {
+			System.out.printf("Checking renewability of items due through %s\n", Util.simpleDate.format(nextWeek));
+		} else {
+			System.out.printf("Not checking renewability of item;\nnextWeek = %s\ncard.email = %s\nmaster_email = %s\n", Util.simpleDate.format(nextWeek), card.email, Config.load().master_email);
+		}
 		int needToRenew = 0;
 		for (final HtmlTableRow row : table.getRows()) {
 			int colId = 0;
