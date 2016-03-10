@@ -223,7 +223,7 @@ public class LibraryRenewer {
 					} else if (rowId > 1) {
 						workingRow.put(column.get(colId), cell);
 						if (column.get(colId).equals("status")) {
-							List<HtmlElement> list = cell.getHtmlElementsByTagName("font");
+							List<HtmlElement> list = cell.getHtmlElementsByTagName("em");
 							if (!list.isEmpty()) {
 								ItemStatus itemStatus = ItemStatus.findOrCreate(list.get(0).asText(), page);
 								++failedCount;
@@ -354,8 +354,6 @@ public class LibraryRenewer {
 		HashMap<String, Integer> columnId = new HashMap<String, Integer>();
 		if(card.email.equalsIgnoreCase(Config.load().master_email)) {
 			System.out.printf("Checking renewability of items due through %s\n", Util.simpleDate.format(nextWeek));
-		} else {
-			System.out.printf("Not checking renewability of item;\nnextWeek = %s\ncard.email = %s\nmaster_email = %s\n", Util.simpleDate.format(nextWeek), card.email, Config.load().master_email);
 		}
 		int needToRenew = 0;
 		for (final HtmlTableRow row : table.getRows()) {
@@ -387,20 +385,25 @@ public class LibraryRenewer {
 								webClient.close();
 								return 0;
 							}
-							if (date.compareTo(nextWeek) <= 0 && card.email.equalsIgnoreCase(Config.load().master_email)) {
-								DomNodeList<HtmlElement> titleAnchors = workingRow.get("title").getElementsByTagName("a");
-								if(titleAnchors.getLength() > 0) {
-									try {
-										HtmlElement anchor = titleAnchors.get(0);
-										String title = anchor.asText().trim();
-										String href = anchor.getAttribute("href");
-										if(itemStatus(href) == 0) {
-											email(null,"Item may fail to renew",
-													String.format("The item %s %s which is due on %s may fail to renew according to current heuristic models.", title, href, Util.simpleDate.format(date)));
+							if (card.email.equalsIgnoreCase(Config.load().master_email)) {
+								if(date.compareTo(nextWeek) <= 0) {
+									DomNodeList<HtmlElement> titleAnchors = workingRow.get("title").getElementsByTagName("a");
+									if(titleAnchors.getLength() > 0) {
+										try {
+											HtmlElement anchor = titleAnchors.get(0);
+											String title = anchor.asText().trim();
+											String href = anchor.getAttribute("href");
+											if(itemStatus(href) == 0) {
+												email(null,"Item may fail to renew",
+														String.format("The item %s %s which is due on %s may fail to renew according to current heuristic models.", title, href, Util.simpleDate.format(date)));
+											}
+										} catch (Exception e) {
+											System.out.printf("Failed to check item %s (due on %s) for renewability: %s",
+													titleAnchors.get(0).asText().trim(), Util.simpleDate.format(date),
+													e.toString());
 										}
-									} catch (FailingHttpStatusCodeException e) {
-									} catch (MalformedURLException e) {
-									} catch (IOException e) {
+									} else {
+										System.out.printf("Not checking item %s due on %s for renewability because it doesn't have a link", workingRow.get("title").asText().trim(), Util.simpleDate.format(date));
 									}
 								}
 							}
