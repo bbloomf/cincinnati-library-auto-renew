@@ -38,6 +38,7 @@ import com.gargoylesoftware.htmlunit.html.HtmlTableRow;
 
 public class LibraryRenewer {
 	private static Pattern ptnDueDate = Pattern.compile("(?:due\\s*\\d+-\\d+-\\d+\\s*renewed\\s*)?(?:now )?due ((\\d+)-(\\d+)-(\\d+))(\\s+.*)?", Pattern.CASE_INSENSITIVE);
+	private static Pattern ptnDisplayNone = Pattern.compile("(^|;)\\s*display:\\s*none\\s*(;|$)");
 	private static class Status {
 		public String statusText;
 		public Date nextDueDate;
@@ -204,8 +205,9 @@ public class LibraryRenewer {
 		int failedCount = 0;
 		int tryToRenewCount = 0;
 		HtmlElement ele = page.getHtmlElementById("renewfailmsg");
+		Matcher m = ptnDisplayNone.matcher(ele.getAttribute("style"));
 		Date nextDueDate = null;
-		if (ele != null && !ele.getElementsByTagName("h2").isEmpty()) {
+		if (ele != null && !m.matches() && !ele.getElementsByTagName("h2").isEmpty()) {
 			StringBuilder sb = new StringBuilder(256);
 			sb.append(ele.getElementsByTagName("h2").get(0).asText()).append("\n\n");
 			HtmlTable table = (HtmlTable) page.getElementsByTagName("table").get(0);
@@ -225,28 +227,31 @@ public class LibraryRenewer {
 						if (column.get(colId).equals("status")) {
 							List<HtmlElement> list = cell.getHtmlElementsByTagName("em");
 							if (!list.isEmpty()) {
-								ItemStatus itemStatus = ItemStatus.findOrCreate(list.get(0).asText(), page);
-								++failedCount;
-								if(itemStatus.worthTryingToRenew) {
-									++tryToRenewCount;
-									//make sure this is a failure that could be detected in the future:
-									DomNodeList<HtmlElement> titleAnchors = workingRow.get("title").getElementsByTagName("a");
-									if(titleAnchors.getLength() > 0) {
-										try {
-											itemStatus(titleAnchors.get(0).getAttribute("href"),isTask? null : 0);
-										} catch (FailingHttpStatusCodeException e) {
-										} catch (MalformedURLException e) {
-										} catch (IOException e) {
+								String statusText = list.get(0).asText();
+								if(!statusText.trim().toLowerCase().startsWith("renewed")) {
+									ItemStatus itemStatus = ItemStatus.findOrCreate(statusText, page);
+									++failedCount;
+									if(itemStatus.worthTryingToRenew) {
+										++tryToRenewCount;
+										//make sure this is a failure that could be detected in the future:
+										DomNodeList<HtmlElement> titleAnchors = workingRow.get("title").getElementsByTagName("a");
+										if(titleAnchors.getLength() > 0) {
+											try {
+												itemStatus(titleAnchors.get(0).getAttribute("href"),isTask? null : 0);
+											} catch (FailingHttpStatusCodeException e) {
+											} catch (MalformedURLException e) {
+											} catch (IOException e) {
+											}
 										}
 									}
+									HtmlTableCell titleCell = workingRow.get("title");
+									String title = titleCell.asText().trim();
+									DomNodeList<HtmlElement> nodes = titleCell.getElementsByTagName("a");
+									if(nodes.getLength() > 0) {
+										title = String.format("%s: %s", title, nodes.get(0).getAttribute("href"));
+									}
+									sb.append(itemStatus.text).append(": ").append(title).append("\n\n");
 								}
-								HtmlTableCell titleCell = workingRow.get("title");
-								String title = titleCell.asText().trim();
-								DomNodeList<HtmlElement> nodes = titleCell.getElementsByTagName("a");
-								if(nodes.getLength() > 0) {
-									title = String.format("%s: %s", title, nodes.get(0).getAttribute("href"));
-								}
-								sb.append(itemStatus.text).append(": ").append(title).append("\n\n");
 							}
 							Date date = getDateForCellText(cell.asText());
 							if (date != null && (nextDueDate == null || nextDueDate.after(date)))
